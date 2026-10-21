@@ -52,7 +52,7 @@ py -m pip install --user uv
 ```
 
 ```bash
-# macOS / Linux
+# Linux
 npm install -g pnpm
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ./start.sh
@@ -93,7 +93,7 @@ pnpm --filter @pixels/web run brand            # regenerate icons from brand/sou
 
 Pre-commit hooks (`ruff`, `black`, `mypy`, `prettier`, `eslint`, `tsc`, **gitleaks**, and a block
 on files over 10 MB) are described in [.pre-commit-config.yaml](.pre-commit-config.yaml). CI runs
-lint, type checks, unit tests, the security-gate tests on Windows, macOS and Linux, a dependency
+lint, type checks, unit tests, the security-gate tests on Windows and Linux, a dependency
 audit, CodeQL, and the browser test.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the pieces fit together.

@@ -197,7 +197,8 @@ else:
     ) -> SandboxResult:
         def limit() -> None:
             os.setsid()
-            resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
+            if sys.platform != "darwin":  # macOS does not support an address-space limit
+                resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
             resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds + 5))
             resource.setrlimit(resource.RLIMIT_FSIZE, (memory_bytes, memory_bytes))
             resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
@@ -224,4 +225,8 @@ else:
             if isolated
             else ["Network isolation needs `unshare -rn`, which is not available here."]
         )
-        return SandboxCapabilities("posix-rlimit", True, True, False, isolated, notes)
+        if sys.platform == "darwin":
+            notes.append("macOS has no address-space limit, so decoder memory is not capped here.")
+        return SandboxCapabilities(
+            "posix-rlimit", sys.platform != "darwin", True, False, isolated, notes
+        )

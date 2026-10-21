@@ -54,7 +54,9 @@ These are known and intentional; none is hidden by the UI.
 - **The sandbox is resource containment, not a jail.** On Windows it is a Job Object (memory,
   CPU time, no extra processes, no desktop or clipboard access, killed with the job). On Linux and
   macOS it uses `setrlimit`, a new session and, when the kernel allows it, `unshare -rn` for an empty
-  network namespace. The worker can still read files the current user can read.
+  network namespace. macOS cannot cap a process's address space, so there the decoder's memory is not
+  limited (the CPU, file-size and time limits still apply). The worker can still read files the
+  current user can read.
 - **Network isolation is OS-enforced only on Linux** (when `unshare -rn` works). Elsewhere the
   worker blocks sockets inside its own process, which is defence in depth, not a guarantee.
   `GET /api/security/status` reports which one you have.

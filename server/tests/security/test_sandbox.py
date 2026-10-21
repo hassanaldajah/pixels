@@ -26,6 +26,7 @@ def _inspect(settings: Settings, data: bytes) -> GateRejection:
     return caught.value
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="macOS cannot cap address space")
 def test_memory_limit_stops_the_worker(settings: Settings) -> None:
     # 6000 x 6000 x 3 = 108 MB of pixels: a perfectly valid image that cannot fit in 100 MB.
     big = fx.encode(fx.Image.new("RGB", (6000, 6000), (10, 20, 30)), "PNG", compress_level=1)
@@ -96,6 +97,7 @@ def test_worker_child_processes_are_limited_on_windows(tmp_path: Path) -> None:
 
 def test_capabilities_are_reported_honestly() -> None:
     caps = capabilities()
-    assert caps.memory_limit and caps.cpu_limit
+    assert caps.cpu_limit
+    assert caps.memory_limit == (sys.platform != "darwin")  # macOS cannot cap address space
     if sys.platform == "win32":
         assert caps.network_isolated is False  # blocked in-process only; documented limitation

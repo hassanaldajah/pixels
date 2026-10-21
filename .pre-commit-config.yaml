@@ -1,0 +1,61 @@
+# Install once:  uv tool install pre-commit && pre-commit install
+# Or via the project:  cd server && uv run pre-commit install --config ../.pre-commit-config.yaml
+default_install_hook_types: [pre-commit]
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ['--maxkb=10240'] # blocks files over 10 MB (model weights, raw photos)
+      - id: check-merge-conflict
+      - id: check-yaml
+        exclude: pnpm-lock\.yaml$ # a multi-document file written by pnpm
+      - id: check-toml
+      - id: end-of-file-fixer
+        exclude: '\.(png|ico|icns|woff2?)$|wordmark\.generated\.ts$|\.svg$'
+      - id: trailing-whitespace
+        exclude: '\.(png|ico|icns|woff2?)$|wordmark\.generated\.ts$|\.svg$'
+      - id: detect-private-key
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks # secret scanning
+
+  - repo: local
+    hooks:
+      # Python tools run from the project's own lockfile, so hooks, CI and editors use one version.
+      - id: ruff
+        name: ruff
+        entry: uv run --project server ruff check --fix
+        language: system
+        files: ^server/.*\.py$
+      - id: black
+        name: black
+        entry: uv run --project server black
+        language: system
+        files: ^server/.*\.py$
+      - id: mypy
+        name: mypy (strict)
+        entry: uv run --directory server mypy
+        language: system
+        pass_filenames: false
+        files: ^server/.*\.py$
+      - id: prettier
+        name: prettier --check
+        entry: pnpm --filter @pixels/web run format:check
+        language: system
+        pass_filenames: false
+        files: ^apps/web/.*\.(ts|tsx|css|mjs|js|json|html)$
+      - id: eslint
+        name: eslint
+        entry: pnpm --filter @pixels/web run lint
+        language: system
+        pass_filenames: false
+        files: ^apps/web/.*\.(ts|tsx|mjs|js)$
+      - id: tsc
+        name: tsc --noEmit
+        entry: pnpm --filter @pixels/web run typecheck
+        language: system
+        pass_filenames: false
+        files: ^apps/web/.*\.(ts|tsx)$

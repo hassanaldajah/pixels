@@ -1,0 +1,129 @@
+name: Release
+
+# Builds the desktop app on GitHub's own machines and attaches it to a GitHub Release.
+# Start it by pushing a tag:  git tag v0.1.0 && git push origin v0.1.0
+# (or run it by hand from the Actions tab).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write # create the release and upload files
+  id-token: write # build provenance (signed proof of where the file was built)
+  attestations: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            bundles: nsis
+          - name: Linux
+            os: ubuntu-22.04
+            bundles: deb,appimage
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.11'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: Linux system libraries for the web view
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev
+
+      - run: pnpm install --frozen-lockfile
+      - name: Security audits (any known vulnerability fails the release)
+        run: |
+          pnpm audit
+          cd server && uv sync --frozen && uv run pip-audit
+      - name: Build the web app
+        run: pnpm --filter @pixels/web run build
+      - name: Freeze the backend
+        working-directory: server
+        run: uv run python freeze.py
+      - name: Smoke-test the frozen backend (including the sandboxed decoder)
+        working-directory: server
+        run: uv run python scripts/smoke_frozen.py
+
+      - name: Rust dependency audit
+        run: |
+          cargo install cargo-audit --locked
+          cargo audit
+        working-directory: apps/desktop/src-tauri
+
+      - name: Build the installer
+        working-directory: apps/desktop
+        run: pnpm exec tauri build --bundles ${{ matrix.bundles }}
+
+      - name: Collect the files and write SHA-256 checksums
+        shell: bash
+        run: |
+          mkdir release
+          find apps/desktop/src-tauri/target/release/bundle -type f \( -name '*.exe' -o -name '*.deb' -o -name '*.AppImage' \) -exec cp {} release/ \;
+          cd release
+          for f in *; do (command -v sha256sum >/dev/null && sha256sum "$f" || shasum -a 256 "$f") > "$f.sha256"; done
+          ls -la
+
+      - name: Prove where the files were built (build provenance)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/*.exe
+        if: runner.os == 'Windows'
+      - name: Prove where the files were built (build provenance)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            release/*.deb
+            release/*.AppImage
+        if: runner.os == 'Linux'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pixels-${{ matrix.name }}
+          path: release/*
+
+  publish:
+    name: Publish the release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+          body: |
+            ## Install
+            - **Windows**: download the `.exe` installer and run it. It installs for your user only (no admin rights).
+              Windows may show a SmartScreen warning because the file is not signed with a paid certificate:
+              click **More info**, then **Run anyway**.
+            - **Linux**: download the `.AppImage` (make it executable and run it) or the `.deb`.
+
+            ## Check it before you run it
+            See [docs/VERIFY.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/docs/VERIFY.md).
+            Every file has a `.sha256` checksum and a signed build-provenance attestation.

@@ -1,0 +1,18 @@
+{
+  "name": "pixels",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@12.14.0",
+  "scripts": {
+    "dev": "pnpm --filter @pixels/web dev",
+    "build": "pnpm --filter @pixels/web build",
+    "test": "pnpm --filter @pixels/web test",
+    "lint": "pnpm --filter @pixels/web lint",
+    "typecheck": "pnpm --filter @pixels/web typecheck"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pixels</title>
+    <!-- Written inline so the very first paint is already dark: no white flash. -->
+    <style>
+      html, body { margin: 0; height: 100%; background: #030406; overflow: hidden; }
+      .glow { position: fixed; inset: 0; background: radial-gradient(ellipse 46% 30% at 50% 50%, rgba(10, 109, 255, 0.28), transparent 70%); animation: breathe 2.6s ease-in-out infinite; }
+      @keyframes breathe { 50% { opacity: 0.55; } }
+      #error { display: none; position: fixed; inset: 0; margin: 0; padding: 40px; place-content: center; text-align: center; color: #ff6b87; font: 15px/1.6 system-ui, 'Segoe UI', sans-serif; }
+      @media (prefers-reduced-motion: reduce) { .glow { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <div class="glow"></div>
+    <p id="error"></p>
+    <script src="loading.js"></script>
+  </body>
+</html>

@@ -1,0 +1,67 @@
+[project]
+name = "pixels-server"
+version = "0.1.0"
+description = "Pixels local backend: Security Gate, image sanitising, editing pipeline."
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi>=0.158.1",
+    "numpy>=2.4.6",
+    "pillow>=13.0.0",
+    "pillow-heif>=1.8.1",
+    "pydantic-settings>=2.16.1",
+    "tifffile>=2026.3.3",
+    "uvicorn[standard]>=0.54.0",
+    "yara-x>=1.22.0",
+]
+
+[dependency-groups]
+dev = [
+    "black>=26.10.1",
+    "httpx>=0.28.1",
+    "mypy>=2.4.0",
+    "pip-audit>=2.10.1",
+    "pre-commit>=4.7.0",
+    "pyinstaller>=6.22.3",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.17.1",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = ["slow: tests that decode very large images"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM", "RUF"]
+ignore = [
+    "S101",  # assert is fine in tests
+    "S603",  # subprocess is only ever called with a fixed argument list
+    "S607",
+    "E501",  # black owns line length; long docstrings and comments are fine
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S108"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["app", "security", "pipeline"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["yara_x.*", "pillow_heif.*"]
+ignore_missing_imports = true

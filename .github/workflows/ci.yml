@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: Server (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.11'
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run black --check .
+        if: matrix.os == 'ubuntu-latest'
+      - run: uv run mypy
+        if: matrix.os == 'ubuntu-latest'
+      - name: Unit and API tests
+        run: uv run pytest tests --ignore=tests/security -q
+      - name: Security Gate tests (every malicious fixture must be rejected)
+        run: uv run pytest tests/security -q
+      - name: Dependency audit
+        if: matrix.os == 'ubuntu-latest'
+        run: uv run pip-audit
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pixels/web run typecheck
+      - run: pnpm --filter @pixels/web run lint
+      - run: pnpm --filter @pixels/web run format:check
+      - run: pnpm --filter @pixels/web run test
+      - run: pnpm --filter @pixels/web run build
+      - run: pnpm audit # any known vulnerability, of any severity, fails the build
+
+  e2e:
+    name: End-to-end (real browser)
+    runs-on: ubuntu-latest
+    needs: [server, web]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.11'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pixels/web run build
+      - run: uv sync --frozen
+        working-directory: server
+      - name: Start the backend
+        working-directory: server
+        run: |
+          PIXELS_DATA_DIR="$RUNNER_TEMP/pixels-data" nohup uv run python -m app > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:8765/api/health && break || sleep 1; done
+      - name: Browser test
+        env:
+          PIXELS_BROWSER: chrome
+          PIXELS_SHOTS: ${{ runner.temp }}/shots
+        run: pnpm --filter @pixels/web run e2e
+      - name: Editor browser test (GPU preview must match the server export)
+        env:
+          PIXELS_BROWSER: chrome
+          PIXELS_SHOTS: ${{ runner.temp }}/shots
+        run: pnpm --filter @pixels/web run e2e:edit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-screenshots
+          path: ${{ runner.temp }}/shots
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

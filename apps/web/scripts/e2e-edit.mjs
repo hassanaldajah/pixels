@@ -294,6 +294,122 @@ const imageId = await page.evaluate(() => {
 })
 check(Boolean(imageId), `uploaded the test image (${imageId?.slice(0, 8)}…)`)
 
+// Layers: a second picture (with soft transparency) goes through the Security Gate like any upload; the cases then
+// place and blend it on the GPU and on the server.
+const LW = 90
+const LH = 70
+const lraw = Buffer.alloc(LW * LH * 4)
+for (let y = 0; y < LH; y++)
+  for (let x = 0; x < LW; x++) {
+    const i = (y * LW + x) * 4
+    lraw[i] = Math.round(255 * (x / LW))
+    lraw[i + 1] = Math.round(255 * (1 - y / LH))
+    lraw[i + 2] = Math.round(255 * (0.5 + 0.5 * Math.sin((x + y) / 9)))
+    lraw[i + 3] = x < 12 ? Math.round((x / 12) * 255) : 255 // a soft left edge
+  }
+const layerPng = await sharp(lraw, { raw: { width: LW, height: LH, channels: 4 } })
+  .png()
+  .toBuffer()
+const layerId = await page.evaluate(async (bytes) => {
+  const r = await fetch('/api/images', {
+    method: 'POST',
+    body: new Uint8Array(bytes),
+    headers: { 'X-Filename': 'layer.png' },
+  })
+  return (await r.json()).id
+}, Array.from(layerPng))
+check(/^[0-9a-f]{32}$/.test(layerId ?? ''), 'uploaded the layer picture through the Security Gate')
+const lay = (over) => ({
+  id: 'layer1',
+  image_id: layerId,
+  name: 'L',
+  visible: true,
+  opacity: 100,
+  blend: 'normal',
+  x: 0,
+  y: 0,
+  scale: 1,
+  ...over,
+})
+const layered = { mean: 1.0, max: 4 }
+const layeredScaled = { mean: 1.5, max: 14 }
+cases.push(
+  [
+    'layer: normal, whole-pixel move',
+    { geometry: [], adjust: adjust(), layers: [lay({ x: 40, y: 30 })] },
+    layered,
+    0,
+  ],
+  [
+    'layer: multiply at 60%',
+    { geometry: [], adjust: adjust(), layers: [lay({ x: 100, y: 60, blend: 'multiply', opacity: 60 })] },
+    layered,
+    0,
+  ],
+  [
+    'layer: screen + overlay stack',
+    {
+      geometry: [],
+      adjust: adjust(),
+      layers: [
+        lay({ x: 10, y: 10, blend: 'screen' }),
+        lay({ id: 'layer2', x: 60, y: 40, blend: 'overlay', opacity: 80 }),
+      ],
+    },
+    layered,
+    0,
+  ],
+  [
+    'layer: darken, lighten, hidden',
+    {
+      geometry: [],
+      adjust: adjust(),
+      layers: [
+        lay({ x: 20, y: 80, blend: 'darken' }),
+        lay({ id: 'layer2', x: 90, y: 20, blend: 'lighten' }),
+        lay({ id: 'layer3', visible: false, blend: 'difference' }),
+      ],
+    },
+    layered,
+    0,
+  ],
+  [
+    'layer: difference + soft-light',
+    {
+      geometry: [],
+      adjust: adjust(),
+      layers: [
+        lay({ x: 30, y: 50, blend: 'difference' }),
+        lay({ id: 'layer2', x: 120, y: 90, blend: 'soft-light' }),
+      ],
+    },
+    layered,
+    0,
+  ],
+  [
+    'layer: scaled 1.7 at a fractional position',
+    { geometry: [], adjust: adjust(), layers: [lay({ x: 33.4, y: 21.7, scale: 1.7, opacity: 90 })] },
+    layeredScaled,
+    2,
+  ],
+  [
+    'layer: shrunk to 0.45',
+    { geometry: [], adjust: adjust(), layers: [lay({ x: 120, y: 70, scale: 0.45, blend: 'multiply' })] },
+    layeredScaled,
+    2,
+  ],
+  [
+    'layer: after crop + adjustments',
+    {
+      geometry: [{ type: 'crop', x: 8, y: 8, w: 200, h: 150 }],
+      adjust: adjust({ exposure: 0.4, saturation: 20 }),
+      layers: [lay({ x: 50, y: 40, blend: 'overlay' })],
+    },
+    layered,
+    0,
+  ],
+)
+
 async function serverRender(state) {
   const response = await page.evaluate(
     async ([id, body]) => {

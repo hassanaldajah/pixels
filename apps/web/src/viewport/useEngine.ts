@@ -3,6 +3,7 @@ import { GpuPipeline, type RenderResult } from '../engine/pipeline'
 import { isEmptyState, type EditState } from '../engine/types'
 import { displayedState, useEdit } from '../state/edit'
 import { useImage } from '../state/image'
+import { useLayerPictures } from '../state/layers'
 import { QUALITY, useUi } from '../state/ui'
 import { useView } from '../state/view'
 import type { GlViewport, Layer } from './renderer'
@@ -138,6 +139,51 @@ export function useEngine(gl: MutableRefObject<GlViewport | null>, markDirty: ()
     })()
     return () => {
       cancelled = true
+    }
+  }, [image, quality, gl])
+
+  // Layer pictures: load any the edit refers to, keep the GPU copies in step, and redraw when one arrives.
+  useEffect(() => {
+    const sync = () => {
+      const engine = pipeline.current
+      const { pictures, ensure } = useLayerPictures.getState()
+      const wanted = new Set((displayedState().layers ?? []).map((l) => l.image_id))
+      for (const id of wanted) if (!pictures[id]) void ensure(id)
+      const renderer = gl.current
+      if (!engine || !ready.current || !renderer) return
+      const maxTexture = renderer.context.getParameter(renderer.context.MAX_TEXTURE_SIZE) as number
+      const edge = Math.min(maxTexture, ORIGINAL_EDGE_CAP)
+      for (const id of wanted) {
+        const picture = pictures[id]
+        if (!picture || engine.hasLayerImage(id)) continue
+        const f = Math.min(1, edge / Math.max(picture.width, picture.height))
+        if (f < 1) {
+          void createImageBitmap(picture.blob, {
+            resizeWidth: Math.max(1, Math.round(picture.width * f)),
+            resizeHeight: Math.max(1, Math.round(picture.height * f)),
+            resizeQuality: 'high',
+            premultiplyAlpha: 'none',
+            colorSpaceConversion: 'none',
+          }).then((small) => {
+            pipeline.current?.setLayerImage(id, small, picture.width, picture.height)
+            small.close()
+            schedule.current()
+          })
+        } else engine.setLayerImage(id, picture.bitmap, picture.width, picture.height)
+      }
+    }
+    sync()
+    const offEdit = useEdit.subscribe(() => {
+      sync()
+      schedule.current()
+    })
+    const offPictures = useLayerPictures.subscribe(() => {
+      sync()
+      schedule.current()
+    })
+    return () => {
+      offEdit()
+      offPictures()
     }
   }, [image, quality, gl])
 

@@ -67,10 +67,38 @@ export const defaultPixelArt = (): PixelArt => ({
   scale: 0,
 })
 
+export type BlendMode =
+  'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'difference' | 'soft-light'
+export const BLEND_MODES: BlendMode[] = [
+  'normal',
+  'multiply',
+  'screen',
+  'overlay',
+  'darken',
+  'lighten',
+  'difference',
+  'soft-light',
+]
+export const MAX_LAYERS = 16
+
+/** A picture placed above the edited image (bottom to top). `image_id` is a Security-Gate-approved working copy. */
+export interface Layer {
+  id: string
+  image_id: string
+  name: string
+  visible: boolean
+  opacity: number // percent
+  blend: BlendMode
+  x: number
+  y: number
+  scale: number
+}
+
 export interface EditState {
   geometry: GeoOp[]
   adjust: Adjust
   pixelart?: PixelArt | null
+  layers?: Layer[]
 }
 
 export const HSL_BANDS = ['red', 'orange', 'yellow', 'green', 'aqua', 'blue', 'purple', 'magenta'] as const
@@ -120,7 +148,7 @@ export function adjustEquals(a: Adjust, b: Adjust): boolean {
 export const isIdentityAdjust = (a: Adjust): boolean => adjustEquals(a, defaultAdjust())
 
 export const isEmptyState = (s: EditState): boolean =>
-  s.geometry.length === 0 && isIdentityAdjust(s.adjust) && !s.pixelart
+  s.geometry.length === 0 && isIdentityAdjust(s.adjust) && !s.pixelart && !(s.layers?.length ?? 0)
 
 export const hasPointAdjustments = (a: Adjust): boolean => {
   const base = defaultAdjust()

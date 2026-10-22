@@ -6,6 +6,7 @@ import { useUi } from '../state/ui'
 import { AdjustPanel } from './AdjustPanel'
 import { EraserPanel } from './EraserPanel'
 import { HistoryPanel } from './HistoryPanel'
+import { LayersPanel } from './LayersPanel'
 import { Histogram } from './Histogram'
 import { PixelArtPanel } from './PixelArtPanel'
 import { PresetsPanel } from './PresetsPanel'
@@ -144,8 +145,8 @@ export function RightPanel() {
               <p className="muted">Every file is checked on the backend before it is shown.</p>
             )}
           </Section>
-          <Section title="Layers & masks" defaultOpen={false} badge="Soon">
-            <p className="muted">Masks arrive with the eraser and background tools.</p>
+          <Section title="Layers" defaultOpen={false}>
+            <LayersPanel />
           </Section>
           <Section title="History" defaultOpen>
             <HistoryPanel />

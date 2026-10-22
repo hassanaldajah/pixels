@@ -261,3 +261,59 @@ void main() {
   }
   outColor = vec4(clamp(rgb, 0.0, 1.0), px.a);
 }`
+
+/**
+ * One layer blended onto the picture. Mirrors server/pipeline/layers.py: the layer is placed with premultiplied
+ * bilinear sampling and a one-pixel anti-aliased edge, then blended with the W3C formulas (source-over + blend mode).
+ */
+export const BLEND_FRAG = `${HEADER}
+uniform sampler2D u_base;
+uniform sampler2D u_layer;
+uniform ivec2 u_layerSize;     // size of the layer texture
+uniform mat3 u_inv;            // preview-canvas pixel centre -> layer texture position (column-major)
+uniform float u_opacity;       // 0..1
+uniform int u_mode;
+
+vec4 layerTexel(ivec2 i) {
+  vec4 t = texelFetch(u_layer, clamp(i, ivec2(0), u_layerSize - 1), 0);
+  return vec4(t.rgb * t.a, t.a);
+}
+vec3 softLight(vec3 cb, vec3 cs) {
+  vec3 d = mix(sqrt(cb), ((16.0 * cb - 12.0) * cb + 4.0) * cb, step(cb, vec3(0.25)));
+  return mix(cb + (2.0 * cs - 1.0) * (d - cb), cb - (1.0 - 2.0 * cs) * cb * (1.0 - cb), step(cs, vec3(0.5)));
+}
+vec3 blendRgb(vec3 cb, vec3 cs) {
+  if (u_mode == 1) return cb * cs;
+  if (u_mode == 2) return cb + cs - cb * cs;
+  if (u_mode == 3) return mix(1.0 - 2.0 * (1.0 - cb) * (1.0 - cs), 2.0 * cb * cs, step(cb, vec3(0.5)));
+  if (u_mode == 4) return min(cb, cs);
+  if (u_mode == 5) return max(cb, cs);
+  if (u_mode == 6) return abs(cb - cs);
+  if (u_mode == 7) return softLight(cb, cs);
+  return cs;
+}
+
+void main() {
+  vec4 base = texelFetch(u_base, ivec2(gl_FragCoord.xy), 0);
+  vec3 q = u_inv * vec3(gl_FragCoord.xy, 1.0);
+  bool valid = q.z > 1e-12;
+  vec2 p = valid ? q.xy / q.z : vec2(-1.0e6);
+  vec2 f = p - 0.5;
+  vec2 fl = floor(f);
+  vec2 t = f - fl;
+  ivec2 i0 = ivec2(fl);
+  vec4 acc = mix(
+    mix(layerTexel(i0), layerTexel(i0 + ivec2(1, 0)), t.x),
+    mix(layerTexel(i0 + ivec2(0, 1)), layerTexel(i0 + ivec2(1, 1)), t.x),
+    t.y);
+  vec3 cs = acc.a > 1e-6 ? acc.rgb / acc.a : vec3(0.0);
+  float inside = min(min(p.x, float(u_layerSize.x) - p.x), min(p.y, float(u_layerSize.y) - p.y));
+  float coverage = valid ? clamp(inside + 0.5, 0.0, 1.0) : 0.0;
+  float as = coverage * acc.a * u_opacity;
+  float ab = base.a;
+  vec3 cb = base.rgb;
+  vec3 mixed = (1.0 - ab) * cs + ab * clamp(blendRgb(cb, cs), 0.0, 1.0);
+  vec3 pm = as * mixed + (1.0 - as) * ab * cb;
+  float a = as + ab * (1.0 - as);
+  outColor = vec4(a > 1e-6 ? clamp(pm / a, 0.0, 1.0) : vec3(0.0), a);
+}`

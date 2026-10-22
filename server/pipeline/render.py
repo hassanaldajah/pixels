@@ -1,4 +1,4 @@
-"""Render an EditState to float32 RGBA: geometry first, then adjustments."""
+"""Render an EditState to float32 RGBA: geometry, adjustments, layers, then pixel art."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from pipeline import adjust, geometry, pixelart
+from pipeline import adjust, geometry, layers, pixelart
+from pipeline.layers import LayerLoader
 from pipeline.ops import EditState
 
 Array = NDArray[np.float32]
@@ -28,14 +29,32 @@ def render_base(source: Array, state: EditState, max_pixels: int = DEFAULT_MAX_P
     return adjust.apply(image, state.adjust, scale=1.0)
 
 
+def render_composite(
+    source: Array,
+    state: EditState,
+    max_pixels: int = DEFAULT_MAX_PIXELS,
+    load_layer: LayerLoader | None = None,
+) -> Array:
+    """Geometry, adjustments and the layers on top (everything except the pixel-art effect)."""
+    return layers.composite(render_base(source, state, max_pixels), state.layers, load_layer)
+
+
 def render_with_info(
-    source: Array, state: EditState, max_pixels: int = DEFAULT_MAX_PIXELS
+    source: Array,
+    state: EditState,
+    max_pixels: int = DEFAULT_MAX_PIXELS,
+    load_layer: LayerLoader | None = None,
 ) -> tuple[Array, dict[str, object] | None]:
-    base = render_base(source, state, max_pixels)
+    image = render_composite(source, state, max_pixels, load_layer)
     if state.pixelart is None:
-        return base, None
-    return pixelart.apply(base, state.pixelart)
+        return image, None
+    return pixelart.apply(image, state.pixelart)
 
 
-def render(source: Array, state: EditState, max_pixels: int = DEFAULT_MAX_PIXELS) -> Array:
-    return render_with_info(source, state, max_pixels)[0]
+def render(
+    source: Array,
+    state: EditState,
+    max_pixels: int = DEFAULT_MAX_PIXELS,
+    load_layer: LayerLoader | None = None,
+) -> Array:
+    return render_with_info(source, state, max_pixels, load_layer)[0]

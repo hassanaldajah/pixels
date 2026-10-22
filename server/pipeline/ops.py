@@ -223,7 +223,53 @@ class PixelArt(_Model):
         return value
 
 
+# --- layers ----------------------------------------------------------------------------------
+BlendMode = Literal[
+    "normal", "multiply", "screen", "overlay", "darken", "lighten", "difference", "soft-light"
+]
+MAX_LAYERS = 16
+LAYER_ID = re.compile(r"^[a-z0-9]{6,32}$")
+IMAGE_ID = re.compile(r"^[0-9a-f]{32}$")
+
+
+class Layer(_Model):
+    """A picture placed above the edited image. Its pixels are another sanitised working copy."""
+
+    id: str
+    image_id: str  # a working copy that went through the Security Gate
+    name: str = Field(default="Layer", max_length=64)
+    visible: bool = True
+    opacity: float = Field(default=100.0, ge=0, le=100)  # percent
+    blend: BlendMode = "normal"
+    x: float = Field(default=0.0, ge=-1e6, le=1e6)  # top-left corner on the canvas, in pixels
+    y: float = Field(default=0.0, ge=-1e6, le=1e6)
+    scale: float = Field(default=1.0, ge=0.01, le=20.0)
+
+    @field_validator("id")
+    @classmethod
+    def _id(cls, value: str) -> str:
+        if not LAYER_ID.fullmatch(value):
+            raise ValueError("a layer id is 6 to 32 lowercase letters and digits")
+        return value
+
+    @field_validator("image_id")
+    @classmethod
+    def _image(cls, value: str) -> str:
+        if not IMAGE_ID.fullmatch(value):
+            raise ValueError("invalid image id")
+        return value
+
+
 class EditState(_Model):
     geometry: list[GeoOp] = Field(default_factory=list, max_length=MAX_GEOMETRY_OPS)
     adjust: Adjust = Field(default_factory=Adjust)
     pixelart: PixelArt | None = None
+    # Bottom to top: layers[0] sits just above the edited picture.
+    layers: list[Layer] = Field(default_factory=list, max_length=MAX_LAYERS)
+
+    @field_validator("layers")
+    @classmethod
+    def _unique(cls, value: list[Layer]) -> list[Layer]:
+        if len({layer.id for layer in value}) != len(value):
+            raise ValueError("layer ids must be unique")
+        return value

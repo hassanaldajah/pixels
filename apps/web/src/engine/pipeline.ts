@@ -5,8 +5,24 @@
  */
 import { curveLut } from './curves'
 import { hexToFill, invert, plan, scaleOp, type Mat3 } from './geometry'
-import { BLUR_FRAG, FINISH_FRAG, FULLSCREEN_VERT, GEOMETRY_FRAG, NOISE_FRAG, POINT_FRAG } from './shaders'
-import { HSL_CENTERS, hasPointAdjustments, isIdentityCurve, type Adjust, type EditState } from './types'
+import {
+  BLEND_FRAG,
+  BLUR_FRAG,
+  FINISH_FRAG,
+  FULLSCREEN_VERT,
+  GEOMETRY_FRAG,
+  NOISE_FRAG,
+  POINT_FRAG,
+} from './shaders'
+import {
+  BLEND_MODES,
+  HSL_CENTERS,
+  hasPointAdjustments,
+  isIdentityCurve,
+  type Adjust,
+  type EditState,
+  type Layer,
+} from './types'
 
 export interface RenderResult {
   /** The picture after geometry and adjustments (RGBA8, mipmapped, straight alpha). */
@@ -80,7 +96,7 @@ class Program {
 }
 
 export class GpuPipeline {
-  private readonly programs: Record<'geometry' | 'point' | 'blur' | 'noise' | 'finish', Program>
+  private readonly programs: Record<'geometry' | 'point' | 'blur' | 'noise' | 'finish' | 'blend', Program>
   private readonly framebuffer: WebGLFramebuffer
   private readonly vao: WebGLVertexArrayObject
   private readonly lutTexture: WebGLTexture
@@ -88,6 +104,10 @@ export class GpuPipeline {
   private source: { texture: WebGLTexture; w: number; h: number } | null = null
   private fullSize = { w: 1, h: 1 }
   private last: RenderResult | null = null
+  private layerTextures = new Map<
+    string,
+    { texture: WebGLTexture; w: number; h: number; fullW: number; fullH: number }
+  >()
   readonly floatTargets: boolean
 
   constructor(private readonly gl: WebGL2RenderingContext) {
@@ -98,6 +118,7 @@ export class GpuPipeline {
       blur: new Program(gl, BLUR_FRAG),
       noise: new Program(gl, NOISE_FRAG),
       finish: new Program(gl, FINISH_FRAG),
+      blend: new Program(gl, BLEND_FRAG),
     }
     const fb = gl.createFramebuffer()
     const vao = gl.createVertexArray()
@@ -126,6 +147,30 @@ export class GpuPipeline {
     this.source = { texture, w: bitmap.width, h: bitmap.height }
     this.fullSize = { w: fullW, h: fullH }
     this.last = null
+  }
+
+  /** Upload a layer's picture (possibly downscaled: `fullW`/`fullH` are its real size). */
+  setLayerImage(id: string, bitmap: ImageBitmap, fullW: number, fullH: number): void {
+    const { gl } = this
+    this.removeLayerImage(id)
+    const texture = gl.createTexture()
+    if (!texture) throw new Error('Could not create a texture')
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, bitmap)
+    this.setNearest(texture)
+    this.layerTextures.set(id, { texture, w: bitmap.width, h: bitmap.height, fullW, fullH })
+  }
+
+  removeLayerImage(id: string): void {
+    const entry = this.layerTextures.get(id)
+    if (entry) this.gl.deleteTexture(entry.texture)
+    this.layerTextures.delete(id)
+  }
+
+  hasLayerImage(id: string): boolean {
+    return this.layerTextures.has(id)
   }
 
   get sourceTexture(): { texture: WebGLTexture; w: number; h: number } | null {
@@ -330,6 +375,29 @@ export class GpuPipeline {
     return out
   }
 
+  /** Blend one layer onto `input` (full-resolution layer coordinates are scaled to the preview). */
+  private blendPass(input: Pooled, layer: Layer, preview: number): Pooled | null {
+    const tex = this.layerTextures.get(layer.image_id)
+    if (!tex) return null
+    const { gl } = this
+    const out = this.acquire(input.w, input.h, 'rgba8')
+    const p = this.programs.blend
+    const fl = tex.w / tex.fullW
+    // preview canvas px -> full canvas px (1 / preview) -> layer px ((. - xy) / scale) -> layer texture px (* fl)
+    const k = fl / (layer.scale * preview)
+    const inv = [k, 0, (-layer.x * fl) / layer.scale, 0, k, (-layer.y * fl) / layer.scale, 0, 0, 1] as const
+    const columns = new Float32Array([inv[0], inv[3], inv[6], inv[1], inv[4], inv[7], inv[2], inv[5], inv[8]])
+    this.pass(p, out, () => {
+      this.bindTexture(0, input.texture, p, 'u_base')
+      this.bindTexture(1, tex.texture, p, 'u_layer')
+      gl.uniform2i(p.loc('u_layerSize'), tex.w, tex.h)
+      gl.uniformMatrix3fv(p.loc('u_inv'), false, columns)
+      p.f('u_opacity', layer.opacity / 100)
+      p.i('u_mode', BLEND_MODES.indexOf(layer.blend))
+    })
+    return out
+  }
+
   private mipmap(tex: Pooled): void {
     const { gl } = this
     gl.bindTexture(gl.TEXTURE_2D, tex.texture)
@@ -396,6 +464,13 @@ export class GpuPipeline {
         stage = quantised
       }
       adjusted = stage ?? geometryPooled
+    }
+    for (const layer of state.layers ?? []) {
+      if (!layer.visible || layer.opacity <= 0) continue
+      const next = this.blendPass(adjusted, layer, f)
+      if (!next) continue
+      if (adjusted !== geometryPooled) adjusted.busy = false
+      adjusted = next
     }
     this.mipmapIfOwned(adjusted)
     if (geometryPooled !== adjusted) this.mipmapIfOwned(geometryPooled)
@@ -467,6 +542,8 @@ export class GpuPipeline {
     const { gl } = this
     for (const p of this.pool) gl.deleteTexture(p.texture)
     this.pool = []
+    for (const t of this.layerTextures.values()) gl.deleteTexture(t.texture)
+    this.layerTextures.clear()
     if (this.source) gl.deleteTexture(this.source.texture)
     gl.deleteTexture(this.lutTexture)
     gl.deleteFramebuffer(this.framebuffer)

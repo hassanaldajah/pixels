@@ -32,6 +32,7 @@ export interface Adjust {
   hsl: { hue: number[]; sat: number[]; lum: number[] }
   curves: { master: CurvePoints; r: CurvePoints; g: CurvePoints; b: CurvePoints }
   noise_reduction: number
+  blur: number
   sharpen: { amount: number; radius: number; threshold: number }
   vignette: { amount: number; midpoint: number; feather: number }
   grain: { amount: number; size: number; seed: number }
@@ -67,10 +68,100 @@ export const defaultPixelArt = (): PixelArt => ({
   scale: 0,
 })
 
+export type BlendMode =
+  'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'difference' | 'soft-light'
+export const BLEND_MODES: BlendMode[] = [
+  'normal',
+  'multiply',
+  'screen',
+  'overlay',
+  'darken',
+  'lighten',
+  'difference',
+  'soft-light',
+]
+export const MAX_LAYERS = 16
+
+export interface LayerMask {
+  kind: 'linear' | 'radial'
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+  invert: boolean
+}
+
+export interface Selection {
+  kind: 'rect' | 'ellipse' | 'polygon'
+  x: number
+  y: number
+  w: number
+  h: number
+  points: [number, number][]
+  feather: number
+  invert: boolean
+}
+export const MAX_SELECTION_POINTS = 128
+
+/** A picture placed above the edited image (bottom to top). `image_id` is a Security-Gate-approved working copy. */
+export interface Layer {
+  id: string
+  image_id: string
+  name: string
+  visible: boolean
+  opacity: number // percent
+  blend: BlendMode
+  x: number
+  y: number
+  scale: number
+  mask?: LayerMask | null
+}
+
+export const MAX_LOCAL = 8
+export const MAX_CLONE = 60
+
+/** One clone-stamp stroke: copies from (x + dx, y + dy) onto the dabs at `pts`. */
+export interface CloneStroke {
+  dx: number
+  dy: number
+  r: number
+  hardness: number
+  flow: number
+  pts: [number, number][]
+}
+
+export interface Stroke {
+  r: number
+  hardness: number
+  flow: number
+  erase: boolean
+  pts: [number, number][]
+}
+export interface Paint {
+  strokes: Stroke[]
+}
+export const MAX_DABS = 40_000
+
+/** Adjustments that apply only where a gradient is opaque (a graduated or radial filter). */
+export interface LocalAdjust {
+  id: string
+  name: string
+  visible: boolean
+  /** A gradient... */
+  mask?: LayerMask | null
+  /** ...or brush strokes (exactly one of the two). */
+  paint?: Paint | null
+  adjust: Adjust
+}
+
 export interface EditState {
   geometry: GeoOp[]
   adjust: Adjust
   pixelart?: PixelArt | null
+  selection?: Selection | null
+  local?: LocalAdjust[]
+  clone?: CloneStroke[]
+  layers?: Layer[]
 }
 
 export const HSL_BANDS = ['red', 'orange', 'yellow', 'green', 'aqua', 'blue', 'purple', 'magenta'] as const
@@ -98,10 +189,19 @@ export function defaultAdjust(): Adjust {
     hsl: { hue: Array<number>(8).fill(0), sat: Array<number>(8).fill(0), lum: Array<number>(8).fill(0) },
     curves: { master: identityCurve(), r: identityCurve(), g: identityCurve(), b: identityCurve() },
     noise_reduction: 0,
+    blur: 0,
     sharpen: { amount: 0, radius: 1, threshold: 0 },
     vignette: { amount: 0, midpoint: 50, feather: 50 },
     grain: { amount: 0, size: 1, seed: 1 },
   }
+}
+
+/**
+ * States saved by older versions (history, projects) lack fields added later (blur, layers...). Fill them with
+ * their defaults wherever a state enters the app, so every panel can rely on them.
+ */
+export function withDefaults(state: EditState): EditState {
+  return { ...state, adjust: { ...defaultAdjust(), ...state.adjust } }
 }
 
 export const emptyState = (): EditState => ({ geometry: [], adjust: defaultAdjust() })
@@ -120,12 +220,17 @@ export function adjustEquals(a: Adjust, b: Adjust): boolean {
 export const isIdentityAdjust = (a: Adjust): boolean => adjustEquals(a, defaultAdjust())
 
 export const isEmptyState = (s: EditState): boolean =>
-  s.geometry.length === 0 && isIdentityAdjust(s.adjust) && !s.pixelart
+  s.geometry.length === 0 &&
+  isIdentityAdjust(s.adjust) &&
+  !s.pixelart &&
+  !(s.layers?.length ?? 0) &&
+  !(s.local?.length ?? 0) &&
+  !(s.clone?.length ?? 0)
 
 export const hasPointAdjustments = (a: Adjust): boolean => {
   const base = defaultAdjust()
   return !adjustEquals(
-    { ...a, noise_reduction: 0, sharpen: base.sharpen, vignette: base.vignette, grain: base.grain },
+    { ...a, noise_reduction: 0, blur: 0, sharpen: base.sharpen, vignette: base.vignette, grain: base.grain },
     base,
   )
 }

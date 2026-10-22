@@ -181,10 +181,10 @@ uniform float u_sigma;
 
 void main() {
   ivec2 c = ivec2(gl_FragCoord.xy);
-  int radius = min(24, max(1, int(ceil(3.0 * u_sigma))));
+  int radius = min(96, max(1, int(ceil(3.0 * u_sigma))));
   float sum = 0.0;
   vec4 acc = vec4(0.0);
-  for (int i = -24; i <= 24; i++) {
+  for (int i = -96; i <= 96; i++) {
     if (i < -radius || i > radius) continue;
     float w = exp(-float(i * i) / (2.0 * u_sigma * u_sigma));
     sum += w;
@@ -260,4 +260,158 @@ void main() {
     rgb += noise * mask * (u_grainAmount / 100.0 * 0.15);
   }
   outColor = vec4(clamp(rgb, 0.0, 1.0), px.a);
+}`
+
+/**
+ * Blends an adjusted copy in where a gradient (the same one layers use) is opaque. Mirrors server/pipeline/render.py.
+ */
+export const MIX_FRAG = `${HEADER}
+uniform sampler2D u_before;
+uniform sampler2D u_after;
+uniform sampler2D u_paint;     // painted mask (R8), when u_maskKind is 3
+uniform int u_useShift;        // clone stamp: take the copy from a shifted place (bilinear)
+uniform vec2 u_shift;          // preview pixels
+uniform int u_maskKind;        // 1 linear, 2 radial, 3 painted
+uniform vec4 u_mask;           // x0, y0, x1, y1 in full-resolution canvas pixels
+uniform int u_maskInvert;
+uniform float u_preview;       // preview scale (preview px per full px)
+
+void main() {
+  ivec2 ip = ivec2(gl_FragCoord.xy);
+  vec2 g = gl_FragCoord.xy / u_preview;
+  vec2 d = u_mask.zw - u_mask.xy;
+  float v = u_maskKind == 3
+    ? texelFetch(u_paint, ip, 0).r
+    : u_maskKind == 1
+      ? clamp(dot(g - u_mask.xy, d) / dot(d, d), 0.0, 1.0)
+      : 1.0 - clamp(length(g - u_mask.xy) / length(d), 0.0, 1.0);
+  if (u_maskInvert == 1) v = 1.0 - v;
+  vec4 copy;
+  if (u_useShift == 1) {
+    ivec2 sz = textureSize(u_after, 0);
+    vec2 q = gl_FragCoord.xy + u_shift - 0.5;
+    vec2 fl = floor(q);
+    vec2 t = q - fl;
+    ivec2 i0 = ivec2(fl);
+    copy = mix(
+      mix(texelFetch(u_after, clamp(i0, ivec2(0), sz - 1), 0), texelFetch(u_after, clamp(i0 + ivec2(1, 0), ivec2(0), sz - 1), 0), t.x),
+      mix(texelFetch(u_after, clamp(i0 + ivec2(0, 1), ivec2(0), sz - 1), 0), texelFetch(u_after, clamp(i0 + ivec2(1, 1), ivec2(0), sz - 1), 0), t.x),
+      t.y);
+  } else copy = texelFetch(u_after, ip, 0);
+  outColor = mix(texelFetch(u_before, ip, 0), copy, v);
+}`
+
+/**
+ * Keeps the adjusted picture inside a selection and the original outside it. Mirrors server/pipeline/selection.py.
+ */
+export const SELECT_FRAG = `${HEADER}
+uniform sampler2D u_before;
+uniform sampler2D u_after;
+uniform int u_kind;            // 0 rect, 1 ellipse, 2 polygon
+uniform vec4 u_rect;           // x, y, w, h in full-resolution canvas pixels
+uniform vec2 u_pts[128];
+uniform int u_n;
+uniform float u_feather;
+uniform int u_invert;
+uniform float u_preview;       // preview scale (preview px per full px)
+
+void main() {
+  ivec2 ip = ivec2(gl_FragCoord.xy);
+  vec4 before = texelFetch(u_before, ip, 0);
+  vec4 after = texelFetch(u_after, ip, 0);
+  vec2 p = gl_FragCoord.xy / u_preview;
+  float sd;
+  if (u_kind == 2) {
+    bool inside = false;
+    float dist = 1.0e20;
+    for (int i = 0; i < 128; i++) {
+      if (i >= u_n) break;
+      vec2 a = u_pts[i];
+      vec2 b = u_pts[(i + 1) % u_n];
+      if ((a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+      vec2 e = b - a;
+      float l2 = dot(e, e);
+      float t = l2 > 0.0 ? clamp(dot(p - a, e) / l2, 0.0, 1.0) : 0.0;
+      dist = min(dist, length(p - (a + t * e)));
+    }
+    sd = inside ? -dist : dist;
+  } else {
+    vec2 c = u_rect.xy + u_rect.zw * 0.5;
+    vec2 h = u_rect.zw * 0.5;
+    sd = u_kind == 0
+      ? max(abs(p.x - c.x) - h.x, abs(p.y - c.y) - h.y)
+      : (length((p - c) / h) - 1.0) * min(h.x, h.y);
+  }
+  float v = clamp(0.5 - sd / max(u_feather, 1.0), 0.0, 1.0);
+  if (u_invert == 1) v = 1.0 - v;
+  outColor = mix(before, after, v);
+}`
+
+/**
+ * One layer blended onto the picture. Mirrors server/pipeline/layers.py: the layer is placed with premultiplied
+ * bilinear sampling and a one-pixel anti-aliased edge, then blended with the W3C formulas (source-over + blend mode).
+ */
+export const BLEND_FRAG = `${HEADER}
+uniform sampler2D u_base;
+uniform sampler2D u_layer;
+uniform ivec2 u_layerSize;     // size of the layer texture
+uniform mat3 u_inv;            // preview-canvas pixel centre -> layer texture position (column-major)
+uniform float u_opacity;       // 0..1
+uniform int u_mode;
+uniform int u_maskKind;       // 0 none, 1 linear, 2 radial
+uniform vec4 u_mask;           // x0, y0, x1, y1 in full-resolution canvas pixels
+uniform int u_maskInvert;
+uniform float u_preview;       // preview scale (preview px per full px)
+
+vec4 layerTexel(ivec2 i) {
+  vec4 t = texelFetch(u_layer, clamp(i, ivec2(0), u_layerSize - 1), 0);
+  return vec4(t.rgb * t.a, t.a);
+}
+vec3 softLight(vec3 cb, vec3 cs) {
+  vec3 d = mix(sqrt(cb), ((16.0 * cb - 12.0) * cb + 4.0) * cb, step(cb, vec3(0.25)));
+  return mix(cb + (2.0 * cs - 1.0) * (d - cb), cb - (1.0 - 2.0 * cs) * cb * (1.0 - cb), step(cs, vec3(0.5)));
+}
+vec3 blendRgb(vec3 cb, vec3 cs) {
+  if (u_mode == 1) return cb * cs;
+  if (u_mode == 2) return cb + cs - cb * cs;
+  if (u_mode == 3) return mix(1.0 - 2.0 * (1.0 - cb) * (1.0 - cs), 2.0 * cb * cs, step(cb, vec3(0.5)));
+  if (u_mode == 4) return min(cb, cs);
+  if (u_mode == 5) return max(cb, cs);
+  if (u_mode == 6) return abs(cb - cs);
+  if (u_mode == 7) return softLight(cb, cs);
+  return cs;
+}
+
+void main() {
+  vec4 base = texelFetch(u_base, ivec2(gl_FragCoord.xy), 0);
+  vec3 q = u_inv * vec3(gl_FragCoord.xy, 1.0);
+  bool valid = q.z > 1e-12;
+  vec2 p = valid ? q.xy / q.z : vec2(-1.0e6);
+  vec2 f = p - 0.5;
+  vec2 fl = floor(f);
+  vec2 t = f - fl;
+  ivec2 i0 = ivec2(fl);
+  vec4 acc = mix(
+    mix(layerTexel(i0), layerTexel(i0 + ivec2(1, 0)), t.x),
+    mix(layerTexel(i0 + ivec2(0, 1)), layerTexel(i0 + ivec2(1, 1)), t.x),
+    t.y);
+  vec3 cs = acc.a > 1e-6 ? acc.rgb / acc.a : vec3(0.0);
+  float inside = min(min(p.x, float(u_layerSize.x) - p.x), min(p.y, float(u_layerSize.y) - p.y));
+  float coverage = valid ? clamp(inside + 0.5, 0.0, 1.0) : 0.0;
+  float maskValue = 1.0;
+  if (u_maskKind != 0) {
+    vec2 g = gl_FragCoord.xy / u_preview;
+    vec2 d = u_mask.zw - u_mask.xy;
+    maskValue = u_maskKind == 1
+      ? clamp(dot(g - u_mask.xy, d) / dot(d, d), 0.0, 1.0)
+      : 1.0 - clamp(length(g - u_mask.xy) / length(d), 0.0, 1.0);
+    if (u_maskInvert == 1) maskValue = 1.0 - maskValue;
+  }
+  float as = coverage * acc.a * u_opacity * maskValue;
+  float ab = base.a;
+  vec3 cb = base.rgb;
+  vec3 mixed = (1.0 - ab) * cs + ab * clamp(blendRgb(cb, cs), 0.0, 1.0);
+  vec3 pm = as * mixed + (1.0 - as) * ab * cb;
+  float a = as + ab * (1.0 - as);
+  outColor = vec4(a > 1e-6 ? clamp(pm / a, 0.0, 1.0) : vec3(0.0), a);
 }`

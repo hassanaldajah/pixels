@@ -38,6 +38,7 @@ def has_point_adjustments(a: Adjust) -> bool:
         a.model_copy(
             update={
                 "noise_reduction": 0.0,
+                "blur": 0.0,
                 "sharpen": base.sharpen,
                 "vignette": base.vignette,
                 "grain": base.grain,
@@ -203,6 +204,8 @@ def apply(rgba: Array, a: Adjust, scale: float = 1.0) -> Array:
     if has_point_adjustments(a):
         rgb = point_stage(rgb, a)
     rgb = noise_reduction(rgb, a.noise_reduction, scale)
+    if a.blur > 0:  # stage 10b: plain Gaussian blur (soften, background blur)
+        rgb = gaussian(rgb, a.blur * scale)
     rgb = sharpen(rgb, a.sharpen.amount, a.sharpen.radius, a.sharpen.threshold, scale)
     rgb = vignette(rgb, a.vignette.amount, a.vignette.midpoint, a.vignette.feather)
     rgb = grain(rgb, a.grain.amount, a.grain.size, a.grain.seed, scale)

@@ -7,6 +7,8 @@ import {
   isEmptyState,
   isIdentityAdjust,
   emptyState,
+  withDefaults,
+  type EditState,
   type GeoOp,
 } from './types'
 
@@ -187,5 +189,21 @@ describe('edit state helpers', () => {
     expect(hasPointAdjustments(a)).toBe(false)
     a.contrast = 10
     expect(hasPointAdjustments(a)).toBe(true)
+  })
+})
+
+describe('states from older versions', () => {
+  it('get the fields added later (blur, ...) filled with their defaults', () => {
+    const old = { geometry: [], adjust: { exposure: 0.5 } } as unknown as EditState
+    const fixed = withDefaults(old)
+    expect(fixed.adjust.exposure).toBe(0.5)
+    expect(fixed.adjust.blur).toBe(0)
+    expect(fixed.adjust.sharpen).toEqual(defaultAdjust().sharpen)
+  })
+
+  it('keep an untouched state recognisable as empty', () => {
+    const old = { geometry: [], adjust: defaultAdjust() } as unknown as EditState
+    delete (old.adjust as unknown as Record<string, unknown>).blur
+    expect(isEmptyState(withDefaults(old))).toBe(true)
   })
 })

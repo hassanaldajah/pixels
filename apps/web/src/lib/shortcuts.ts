@@ -178,6 +178,13 @@ export const COMMANDS: Command[] = [
     run: () => useUi.getState().set({ paletteOpen: true }),
   },
   {
+    id: 'guide',
+    title: 'User guide',
+    keys: 'F1',
+    group: 'Help',
+    run: () => useUi.getState().set({ guideOpen: true }),
+  },
+  {
     id: 'help',
     title: 'Keyboard shortcuts',
     keys: '?',
@@ -234,6 +241,7 @@ export function commandForKey(
   }
   if (e.altKey || e.ctrlKey || e.metaKey) return null
   if (key === '?') return 'help'
+  if (key === 'F1') return 'guide'
   const tool = TOOLS.find((t) => t.shortcut.toLowerCase() === key)
   return tool ? `tool-${tool.id}` : null
 }

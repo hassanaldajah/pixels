@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { GuideDialog } from './GuideDialog'
 import { COMMANDS, type Command } from '../lib/shortcuts'
 import { useUi } from '../state/ui'
 
@@ -147,10 +148,12 @@ function Help() {
 export function Dialogs() {
   const palette = useUi((s) => s.paletteOpen)
   const help = useUi((s) => s.helpOpen)
+  const guide = useUi((s) => s.guideOpen)
   return (
     <>
       {palette && <Palette />}
       {help && <Help />}
+      {guide && <GuideDialog />}
     </>
   )
 }

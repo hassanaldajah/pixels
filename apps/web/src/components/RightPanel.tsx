@@ -4,8 +4,14 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useImage } from '../state/image'
 import { useUi } from '../state/ui'
 import { AdjustPanel } from './AdjustPanel'
+import { BrushPanel } from './BrushPanel'
+import { ClonePanel } from './ClonePanel'
 import { EraserPanel } from './EraserPanel'
 import { HistoryPanel } from './HistoryPanel'
+import { LayersPanel } from './LayersPanel'
+import { LocalPanel } from './LocalPanel'
+import { SelectionPanel } from './SelectionPanel'
+import { TextShapePanel } from './TextShapePanel'
 import { Histogram } from './Histogram'
 import { PixelArtPanel } from './PixelArtPanel'
 import { PresetsPanel } from './PresetsPanel'
@@ -118,6 +124,30 @@ export function RightPanel() {
           {image && tool === 'transform' && <TransformPanel />}
           {image && tool === 'adjust' && <AdjustPanel />}
           {image && tool === 'eraser' && <EraserPanel />}
+          {image && tool === 'brush' && <BrushPanel />}
+          {image && tool === 'lasso' && (
+            <div className="tool-panel">
+              <div className="tool-panel-head">
+                <h4>Lasso</h4>
+              </div>
+              <p className="hint">
+                Drag around the area you want to edit; let go and the shape closes. Adjust edits then apply
+                only inside it. Set the soft edge and Invert under Selection. Esc cancels a shape in progress.
+              </p>
+            </div>
+          )}
+          {image && tool === 'move' && (
+            <div className="tool-panel">
+              <div className="tool-panel-head">
+                <h4>Move</h4>
+              </div>
+              <p className="hint">
+                Drag on the picture to move the selected layer (hold Shift for a straight line). Arrow keys
+                nudge it. Pick the layer first in Layers.
+              </p>
+            </div>
+          )}
+          {image && tool === 'clone' && <ClonePanel />}
           {image && tool === 'background' && <RetouchPanel />}
           {image && tool === 'upscale' && <UpscalePanel />}
           {image && tool === 'pixelart' && <PixelArtPanel />}
@@ -144,8 +174,17 @@ export function RightPanel() {
               <p className="muted">Every file is checked on the backend before it is shown.</p>
             )}
           </Section>
-          <Section title="Layers & masks" defaultOpen={false} badge="Soon">
-            <p className="muted">Masks arrive with the eraser and background tools.</p>
+          <Section title="Local adjustments" defaultOpen={false}>
+            <LocalPanel />
+          </Section>
+          <Section title="Selection" defaultOpen={false}>
+            <SelectionPanel />
+          </Section>
+          <Section title="Text & shapes" defaultOpen={false}>
+            <TextShapePanel />
+          </Section>
+          <Section title="Layers" defaultOpen={false}>
+            <LayersPanel />
           </Section>
           <Section title="History" defaultOpen>
             <HistoryPanel />

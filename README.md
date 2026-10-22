@@ -64,6 +64,15 @@ time. The app is free, works offline and sends nothing anywhere.
 - **Upscale**: Lanczos enlargement up to 4x with a sharpening pass that is limited so it adds no bright or
   dark halos. It cannot invent detail that was never there.
 
+- **Layers and local editing (version 1.2, in progress)**: layers with opacity and eight blend modes and gradient fades;
+  text and shapes as layers; rectangle, ellipse and free-shape (lasso) selections that limit the adjustments; graduated
+  and radial filters; a Brush (dodge, burn, brighten eyes, whiten teeth); Clone stamp; Blur; a Move tool; an in-app
+  user guide (F1). The preview and the export agree to within 1/255 for all of them.
+
+## Using pixels
+
+New to image editing? Press **F1** inside the app for the user guide, or read it here: [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
+
 ## Install and run
 
 You need **Node.js 22+**, **pnpm**, **uv** (it installs Python 3.11 for you) and **git**.

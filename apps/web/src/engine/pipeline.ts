@@ -4,9 +4,33 @@
  * finish. The server renders the same state with NumPy for the export (docs/PIPELINE.md).
  */
 import { curveLut } from './curves'
+import { paintKey, rasterisePaint } from '../lib/paintMask'
 import { hexToFill, invert, plan, scaleOp, type Mat3 } from './geometry'
-import { BLUR_FRAG, FINISH_FRAG, FULLSCREEN_VERT, GEOMETRY_FRAG, NOISE_FRAG, POINT_FRAG } from './shaders'
-import { HSL_CENTERS, hasPointAdjustments, isIdentityCurve, type Adjust, type EditState } from './types'
+import {
+  BLEND_FRAG,
+  MIX_FRAG,
+  SELECT_FRAG,
+  BLUR_FRAG,
+  FINISH_FRAG,
+  FULLSCREEN_VERT,
+  GEOMETRY_FRAG,
+  NOISE_FRAG,
+  POINT_FRAG,
+} from './shaders'
+import {
+  BLEND_MODES,
+  HSL_CENTERS,
+  hasPointAdjustments,
+  isIdentityCurve,
+  type Adjust,
+  type EditState,
+  type CloneStroke,
+  type Layer,
+  type LayerMask,
+  type LocalAdjust,
+  type Paint,
+  type Selection,
+} from './types'
 
 export interface RenderResult {
   /** The picture after geometry and adjustments (RGBA8, mipmapped, straight alpha). */
@@ -80,7 +104,10 @@ class Program {
 }
 
 export class GpuPipeline {
-  private readonly programs: Record<'geometry' | 'point' | 'blur' | 'noise' | 'finish', Program>
+  private readonly programs: Record<
+    'geometry' | 'point' | 'blur' | 'noise' | 'finish' | 'blend' | 'select' | 'mix',
+    Program
+  >
   private readonly framebuffer: WebGLFramebuffer
   private readonly vao: WebGLVertexArrayObject
   private readonly lutTexture: WebGLTexture
@@ -88,6 +115,11 @@ export class GpuPipeline {
   private source: { texture: WebGLTexture; w: number; h: number } | null = null
   private fullSize = { w: 1, h: 1 }
   private last: RenderResult | null = null
+  private paintTextures = new Map<string, { texture: WebGLTexture; key: string }>()
+  private layerTextures = new Map<
+    string,
+    { texture: WebGLTexture; w: number; h: number; fullW: number; fullH: number }
+  >()
   readonly floatTargets: boolean
 
   constructor(private readonly gl: WebGL2RenderingContext) {
@@ -98,6 +130,9 @@ export class GpuPipeline {
       blur: new Program(gl, BLUR_FRAG),
       noise: new Program(gl, NOISE_FRAG),
       finish: new Program(gl, FINISH_FRAG),
+      blend: new Program(gl, BLEND_FRAG),
+      select: new Program(gl, SELECT_FRAG),
+      mix: new Program(gl, MIX_FRAG),
     }
     const fb = gl.createFramebuffer()
     const vao = gl.createVertexArray()
@@ -126,6 +161,30 @@ export class GpuPipeline {
     this.source = { texture, w: bitmap.width, h: bitmap.height }
     this.fullSize = { w: fullW, h: fullH }
     this.last = null
+  }
+
+  /** Upload a layer's picture (possibly downscaled: `fullW`/`fullH` are its real size). */
+  setLayerImage(id: string, bitmap: ImageBitmap, fullW: number, fullH: number): void {
+    const { gl } = this
+    this.removeLayerImage(id)
+    const texture = gl.createTexture()
+    if (!texture) throw new Error('Could not create a texture')
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, bitmap)
+    this.setNearest(texture)
+    this.layerTextures.set(id, { texture, w: bitmap.width, h: bitmap.height, fullW, fullH })
+  }
+
+  removeLayerImage(id: string): void {
+    const entry = this.layerTextures.get(id)
+    if (entry) this.gl.deleteTexture(entry.texture)
+    this.layerTextures.delete(id)
+  }
+
+  hasLayerImage(id: string): boolean {
+    return this.layerTextures.has(id)
   }
 
   get sourceTexture(): { texture: WebGLTexture; w: number; h: number } | null {
@@ -330,6 +389,166 @@ export class GpuPipeline {
     return out
   }
 
+  /** Blend one layer onto `input` (full-resolution layer coordinates are scaled to the preview). */
+  private blendPass(input: Pooled, layer: Layer, preview: number): Pooled | null {
+    const tex = this.layerTextures.get(layer.image_id)
+    if (!tex) return null
+    const { gl } = this
+    const out = this.acquire(input.w, input.h, 'rgba8')
+    const p = this.programs.blend
+    const fl = tex.w / tex.fullW
+    // preview canvas px -> full canvas px (1 / preview) -> layer px ((. - xy) / scale) -> layer texture px (* fl)
+    const k = fl / (layer.scale * preview)
+    const inv = [k, 0, (-layer.x * fl) / layer.scale, 0, k, (-layer.y * fl) / layer.scale, 0, 0, 1] as const
+    const columns = new Float32Array([inv[0], inv[3], inv[6], inv[1], inv[4], inv[7], inv[2], inv[5], inv[8]])
+    this.pass(p, out, () => {
+      this.bindTexture(0, input.texture, p, 'u_base')
+      this.bindTexture(1, tex.texture, p, 'u_layer')
+      gl.uniform2i(p.loc('u_layerSize'), tex.w, tex.h)
+      gl.uniformMatrix3fv(p.loc('u_inv'), false, columns)
+      p.f('u_opacity', layer.opacity / 100)
+      p.i('u_mode', BLEND_MODES.indexOf(layer.blend))
+      const m = layer.mask
+      p.i('u_maskKind', m ? (m.kind === 'linear' ? 1 : 2) : 0)
+      if (m) gl.uniform4f(p.loc('u_mask'), m.x0, m.y0, m.x1, m.y1)
+      p.i('u_maskInvert', m?.invert ? 1 : 0)
+      p.f('u_preview', preview)
+    })
+    return out
+  }
+
+  /** Point adjustments, noise reduction, then sharpen/vignette/grain on `input`. Returns `input` itself if nothing is set. */
+  private adjustChain(input: Pooled, a: Adjust, f: number): Pooled {
+    const needsFinish = a.sharpen.amount > 0 || a.vignette.amount !== 0 || a.grain.amount > 0
+    const needsNoise = a.noise_reduction > 0
+    const needsBlur = a.blur > 0
+    if (!(hasPointAdjustments(a) || needsNoise || needsBlur || needsFinish)) return input
+    let stage: Pooled | null = null
+    if (hasPointAdjustments(a)) stage = this.pointPass(input, a)
+    if (needsNoise) {
+      const base: Pooled = stage ?? this.copyTo(input)
+      const denoised = this.noisePass(base, a, f)
+      if (stage) stage.busy = false
+      stage = denoised
+    }
+    if (needsBlur) {
+      const base: Pooled = stage ?? this.copyTo(input)
+      const blurred = this.blur(base, a.blur * f)
+      base.busy = false
+      stage = blurred
+    }
+    if (needsFinish) {
+      const base: Pooled = stage ?? this.copyTo(input)
+      const finished = this.finishPass(base, a, f)
+      if (stage) stage.busy = false
+      stage = finished
+    } else if (stage && stage.format !== 'rgba8') {
+      const quantised = this.quantise(stage)
+      stage.busy = false
+      stage = quantised
+    }
+    return stage ?? input
+  }
+
+  /** Blend `after` over `before` where the gradient is opaque. */
+  private mixPass(before: Pooled, after: Pooled, local: LocalAdjust, preview: number): Pooled {
+    const { gl } = this
+    const out = this.acquire(before.w, before.h, 'rgba8')
+    const p = this.programs.mix
+    const mask: LayerMask | null = local.mask ?? null
+    const painted =
+      !mask && local.paint ? this.paintTexture(local.id, local.paint, before.w, before.h, preview) : null
+    this.pass(p, out, () => {
+      this.bindTexture(0, before.texture, p, 'u_before')
+      this.bindTexture(1, after.texture, p, 'u_after')
+      this.bindTexture(2, painted ?? after.texture, p, 'u_paint')
+      p.i('u_maskKind', painted ? 3 : mask?.kind === 'linear' ? 1 : 2)
+      gl.uniform4f(p.loc('u_mask'), mask?.x0 ?? 0, mask?.y0 ?? 0, mask?.x1 ?? 1, mask?.y1 ?? 1)
+      p.i('u_maskInvert', mask?.invert ? 1 : 0)
+      p.i('u_useShift', 0)
+      p.f('u_preview', preview)
+    })
+    return out
+  }
+
+  /** One clone-stamp stroke: copy the picture shifted by (dx, dy) onto `before` where the brush is opaque. */
+  private clonePass(
+    before: Pooled,
+    base: Pooled,
+    stroke: CloneStroke,
+    index: number,
+    preview: number,
+  ): Pooled {
+    const { gl } = this
+    const out = this.acquire(before.w, before.h, 'rgba8')
+    const p = this.programs.mix
+    const mask = this.paintTexture(
+      `clone${index}`,
+      {
+        strokes: [
+          { r: stroke.r, hardness: stroke.hardness, flow: stroke.flow, erase: false, pts: stroke.pts },
+        ],
+      },
+      before.w,
+      before.h,
+      preview,
+    )
+    this.pass(p, out, () => {
+      this.bindTexture(0, before.texture, p, 'u_before')
+      this.bindTexture(1, base.texture, p, 'u_after')
+      this.bindTexture(2, mask, p, 'u_paint')
+      p.i('u_maskKind', 3)
+      gl.uniform4f(p.loc('u_mask'), 0, 0, 1, 1)
+      p.i('u_maskInvert', 0)
+      p.i('u_useShift', 1)
+      gl.uniform2f(p.loc('u_shift'), stroke.dx * preview, stroke.dy * preview)
+      p.f('u_preview', preview)
+    })
+    return out
+  }
+
+  /** The brush strokes of a painted adjustment as an R8 texture at preview size (cached until the strokes change). */
+  private paintTexture(id: string, paint: Paint, w: number, h: number, preview: number): WebGLTexture {
+    const { gl } = this
+    const key = paintKey(paint, w, h)
+    const cached = this.paintTextures.get(id)
+    if (cached?.key === key) return cached.texture
+    const data = rasterisePaint(paint, w, h, preview)
+    const texture = cached?.texture ?? gl.createTexture()
+    if (!texture) throw new Error('Could not create a texture')
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, w, h, 0, gl.RED, gl.UNSIGNED_BYTE, data)
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
+    this.setNearest(texture)
+    this.paintTextures.set(id, { texture, key })
+    return texture
+  }
+
+  /** Keep the adjusted picture inside the selection and the original outside it. */
+  private selectPass(before: Pooled, after: Pooled, sel: Selection, preview: number): Pooled {
+    const { gl } = this
+    const out = this.acquire(after.w, after.h, 'rgba8')
+    const p = this.programs.select
+    const pts = new Float32Array(256)
+    sel.points.slice(0, 128).forEach(([x, y], i) => {
+      pts[i * 2] = x
+      pts[i * 2 + 1] = y
+    })
+    this.pass(p, out, () => {
+      this.bindTexture(0, before.texture, p, 'u_before')
+      this.bindTexture(1, after.texture, p, 'u_after')
+      p.i('u_kind', sel.kind === 'rect' ? 0 : sel.kind === 'ellipse' ? 1 : 2)
+      gl.uniform4f(p.loc('u_rect'), sel.x, sel.y, Math.max(sel.w, 1e-6), Math.max(sel.h, 1e-6))
+      gl.uniform2fv(p.loc('u_pts'), pts)
+      p.i('u_n', Math.min(sel.points.length, 128))
+      p.f('u_feather', sel.feather)
+      p.i('u_invert', sel.invert ? 1 : 0)
+      p.f('u_preview', preview)
+    })
+    return out
+  }
+
   private mipmap(tex: Pooled): void {
     const { gl } = this
     gl.bindTexture(gl.TEXTURE_2D, tex.texture)
@@ -373,29 +592,35 @@ export class GpuPipeline {
     }
     const a = state.adjust
 
-    let adjusted: Pooled = geometryPooled
-    const needsFinish = a.sharpen.amount > 0 || a.vignette.amount !== 0 || a.grain.amount > 0
-    const needsNoise = a.noise_reduction > 0
-    if (hasPointAdjustments(a) || needsNoise || needsFinish) {
-      let stage: Pooled | null = null
-      if (hasPointAdjustments(a)) stage = this.pointPass(geometryPooled, a)
-      if (needsNoise) {
-        const base: Pooled = stage ?? this.copyTo(geometryPooled)
-        const denoised = this.noisePass(base, a, f)
-        if (stage) stage.busy = false
-        stage = denoised
-      }
-      if (needsFinish) {
-        const base: Pooled = stage ?? this.copyTo(geometryPooled)
-        const finished = this.finishPass(base, a, f)
-        if (stage) stage.busy = false
-        stage = finished
-      } else if (stage && stage.format !== 'rgba8') {
-        const quantised = this.quantise(stage)
-        stage.busy = false
-        stage = quantised
-      }
-      adjusted = stage ?? geometryPooled
+    // clone stamp: retouched pixels become the base the adjustments run on
+    let base: Pooled = geometryPooled
+    ;(state.clone ?? []).forEach((stroke, i) => {
+      const next = this.clonePass(base, geometryPooled, stroke, i, f)
+      if (base !== geometryPooled) base.busy = false
+      base = next
+    })
+
+    let adjusted: Pooled = this.adjustChain(base, a, f)
+    if (state.selection && adjusted !== base) {
+      const masked = this.selectPass(base, adjusted, state.selection, f)
+      adjusted.busy = false
+      adjusted = masked
+    }
+    for (const local of state.local ?? []) {
+      if (!local.visible) continue
+      const tweaked = this.adjustChain(adjusted, local.adjust, f)
+      if (tweaked === adjusted) continue
+      const mixed = this.mixPass(adjusted, tweaked, local, f)
+      if (adjusted !== base) adjusted.busy = false
+      tweaked.busy = false
+      adjusted = mixed
+    }
+    for (const layer of state.layers ?? []) {
+      if (!layer.visible || layer.opacity <= 0) continue
+      const next = this.blendPass(adjusted, layer, f)
+      if (!next) continue
+      if (adjusted !== base) adjusted.busy = false
+      adjusted = next
     }
     this.mipmapIfOwned(adjusted)
     if (geometryPooled !== adjusted) this.mipmapIfOwned(geometryPooled)
@@ -467,6 +692,10 @@ export class GpuPipeline {
     const { gl } = this
     for (const p of this.pool) gl.deleteTexture(p.texture)
     this.pool = []
+    for (const t of this.layerTextures.values()) gl.deleteTexture(t.texture)
+    for (const t of this.paintTextures.values()) gl.deleteTexture(t.texture)
+    this.paintTextures.clear()
+    this.layerTextures.clear()
     if (this.source) gl.deleteTexture(this.source.texture)
     gl.deleteTexture(this.lutTexture)
     gl.deleteFramebuffer(this.framebuffer)

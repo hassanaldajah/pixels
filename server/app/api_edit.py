@@ -26,7 +26,7 @@ from pipeline.export import ExportOptions, encode
 from pipeline.geometry import GeometryError
 from pipeline.ops import HSL_BANDS, EditState
 from pipeline.recipes import Recipe, run_recipe
-from pipeline.render import load_rgba, render, render_base
+from pipeline.render import load_rgba, render, render_base, render_composite
 from security.errors import GateRejection
 
 router = APIRouter()
@@ -123,11 +123,25 @@ async def capabilities() -> dict[str, Any]:
     }
 
 
+def _layer_loader(request: Request) -> Any:
+    """Layers point at other working copies; each one already went through the Security Gate."""
+    store = request.app.state.store
+
+    def load(image_id: str) -> Any:
+        path = store.png_path(image_id)
+        if not path.is_file():
+            raise ValueError("A layer's picture is no longer available. Add it again.")
+        return load_rgba(path)
+
+    return load
+
+
 async def _render(request: Request, path: Path, state: EditState) -> Any:
     settings = request.app.state.settings
+    load_layer = _layer_loader(request)
 
     def work() -> Any:
-        return render(load_rgba(path), state, settings.max_render_pixels)
+        return render(load_rgba(path), state, settings.max_render_pixels, load_layer)
 
     async with request.app.state.render_slots:
         return await anyio.to_thread.run_sync(work)
@@ -144,7 +158,7 @@ async def export_image(request: Request, image_id: str, body: ExportBody) -> Res
         encoded = await anyio.to_thread.run_sync(
             encode, rendered, body.options, meta.get("safe_exif")
         )
-    except GeometryError as exc:
+    except ValueError as exc:  # includes GeometryError and a missing layer picture
         return _error("bad_edit", str(exc))
     return _download(encoded.data, f"{_stem(meta)}-edited.{encoded.extension}", encoded.media_type)
 
@@ -285,8 +299,19 @@ async def save_project(request: Request, body: ProjectSaveBody) -> Response:
         return found
     path, meta = found
     named = body.project.model_copy(update={"safe_exif": meta.get("safe_exif")})
+    store = request.app.state.store
+
+    def work() -> bytes:
+        layer_pngs = {}
+        for layer_id in project.layer_image_ids(named):
+            layer_path = store.png_path(layer_id)
+            if not layer_path.is_file():
+                raise project.ProjectError("A layer's picture is no longer available.")
+            layer_pngs[layer_id] = layer_path.read_bytes()
+        return project.save(named, path.read_bytes(), layer_pngs)
+
     try:
-        data = await anyio.to_thread.run_sync(lambda: project.save(named, path.read_bytes()))
+        data = await anyio.to_thread.run_sync(work)
     except project.ProjectError as exc:
         return _error("bad_project", str(exc))
     return _download(data, f"{_stem({'name': body.project.name})}.pxe", "application/octet-stream")
@@ -311,7 +336,7 @@ async def open_project(request: Request) -> Response:
     name = _clean_filename(request.headers.get("x-filename", "project.pxe"))
     job = {"id": job_id if is_valid_id(job_id) else new_id(), "name": name}
     try:
-        parsed, original = await anyio.to_thread.run_sync(
+        parsed, original, layer_pngs = await anyio.to_thread.run_sync(
             project.load, b"".join(chunks), settings.max_file_bytes
         )
     except project.ProjectError as exc:
@@ -325,6 +350,21 @@ async def open_project(request: Request) -> Response:
         upload, clean = workdir / "upload.bin", workdir / "clean.png"
         upload.write_bytes(original)
         response = await gate_and_store(state, upload, clean, f"{parsed.name}.png", job)
+        # every layer picture is untrusted too: each one goes through the whole gate and gets a new id
+        new_ids: dict[str, str] = {}
+        for index, (old_id, png) in enumerate(sorted(layer_pngs.items()), start=1):
+            layer_upload, layer_clean = workdir / f"layer{index}.bin", workdir / f"layer{index}.png"
+            layer_upload.write_bytes(png)
+            layer_response = await gate_and_store(
+                state,
+                layer_upload,
+                layer_clean,
+                f"{parsed.name}-layer{index}.png",
+                {"id": new_id(), "name": f"{name} (layer {index})"},
+            )
+            new_ids[old_id] = json.loads(bytes(layer_response.body))["id"]
+        if new_ids:
+            parsed = project.remap_layer_images(parsed, new_ids)
     except GateRejection as rejection:
         state.security_log.rejected(name, rejection.code, rejection.step, rejection.message)
         state.hub.publish({**job, "status": "failed", "error": rejection.message, "progress": 1.0})
@@ -399,6 +439,7 @@ async def pixel_preview(request: Request, image_id: str, body: PixelPreviewBody)
     settings = request.app.state.settings
     cache: dict[str, Any] = request.app.state.__dict__.setdefault("pixel_base_cache", {})
     key = _base_key(image_id, body.state)
+    load_layer = _layer_loader(request)
 
     def work() -> tuple[bytes, dict[str, Any]]:
         import numpy as np
@@ -406,7 +447,9 @@ async def pixel_preview(request: Request, image_id: str, body: PixelPreviewBody)
 
         base = cache.pop(key, None)
         if base is None:
-            base = render_base(load_rgba(path), body.state, settings.max_render_pixels)
+            base = render_composite(
+                load_rgba(path), body.state, settings.max_render_pixels, load_layer
+            )
         cache[key] = base  # most recently used goes last
         while len(cache) > BASE_CACHE_SIZE:
             cache.pop(next(iter(cache)))

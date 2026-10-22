@@ -1,4 +1,4 @@
-"""Render an EditState to float32 RGBA: geometry first, then adjustments."""
+"""Render an EditState to float32 RGBA: geometry, adjustments, layers, then pixel art."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from pipeline import adjust, geometry, pixelart
+from pipeline import adjust, clone, geometry, layers, paint, pixelart, selection
+from pipeline.layers import LayerLoader
 from pipeline.ops import EditState
 
 Array = NDArray[np.float32]
@@ -25,17 +26,50 @@ def load_rgba(path: Path) -> Array:
 def render_base(source: Array, state: EditState, max_pixels: int = DEFAULT_MAX_PIXELS) -> Array:
     """Geometry and adjustments only (everything except the pixel-art effect)."""
     image = geometry.apply(source, state.geometry, max_pixels) if state.geometry else source
-    return adjust.apply(image, state.adjust, scale=1.0)
+    image = clone.apply(image, state.clone)
+    adjusted = adjust.apply(image, state.adjust, scale=1.0)
+    if state.selection is not None and not state.adjust.is_identity():
+        adjusted = selection.apply_inside(image, adjusted, state.selection)
+    for local in state.local:  # each one blends in where its gradient is opaque
+        if not local.visible or local.adjust.is_identity():
+            continue
+        tweaked = adjust.apply(adjusted, local.adjust, scale=1.0)
+        h, w = adjusted.shape[:2]
+        weight = (
+            layers.mask_values(local.mask, w, h)
+            if local.mask is not None
+            else paint.mask(local.paint, w, h)  # type: ignore[arg-type]
+        )
+        adjusted = np.asarray(adjusted + (tweaked - adjusted) * weight, dtype=np.float32)
+    return adjusted
+
+
+def render_composite(
+    source: Array,
+    state: EditState,
+    max_pixels: int = DEFAULT_MAX_PIXELS,
+    load_layer: LayerLoader | None = None,
+) -> Array:
+    """Geometry, adjustments and the layers on top (everything except the pixel-art effect)."""
+    return layers.composite(render_base(source, state, max_pixels), state.layers, load_layer)
 
 
 def render_with_info(
-    source: Array, state: EditState, max_pixels: int = DEFAULT_MAX_PIXELS
+    source: Array,
+    state: EditState,
+    max_pixels: int = DEFAULT_MAX_PIXELS,
+    load_layer: LayerLoader | None = None,
 ) -> tuple[Array, dict[str, object] | None]:
-    base = render_base(source, state, max_pixels)
+    image = render_composite(source, state, max_pixels, load_layer)
     if state.pixelart is None:
-        return base, None
-    return pixelart.apply(base, state.pixelart)
+        return image, None
+    return pixelart.apply(image, state.pixelart)
 
 
-def render(source: Array, state: EditState, max_pixels: int = DEFAULT_MAX_PIXELS) -> Array:
-    return render_with_info(source, state, max_pixels)[0]
+def render(
+    source: Array,
+    state: EditState,
+    max_pixels: int = DEFAULT_MAX_PIXELS,
+    load_layer: LayerLoader | None = None,
+) -> Array:
+    return render_with_info(source, state, max_pixels, load_layer)[0]

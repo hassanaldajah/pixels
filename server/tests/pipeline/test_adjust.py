@@ -251,3 +251,17 @@ def test_spatial_stages_leave_a_flat_centre_alone() -> None:
 
 def test_luma_weights() -> None:
     assert luma(np.array([[1, 1, 1]], dtype=F32))[0] == pytest.approx(1.0, abs=1e-6)
+
+
+def test_blur_softens_edges_and_keeps_alpha() -> None:
+    from pipeline import adjust as adj
+    from pipeline.ops import Adjust
+
+    image = np.zeros((20, 20, 4), dtype=np.float32)
+    image[..., 3] = 1.0
+    image[:, 10:, :3] = 1.0  # a hard vertical edge
+    out = adj.apply(image, Adjust(blur=3.0))
+    row = out[10, :, 0]
+    assert 0.0 < row[9] < 1.0 and 0.0 < row[10] < 1.0 and row[0] < 0.05 and row[19] > 0.95
+    assert np.array_equal(out[..., 3], image[..., 3])
+    assert np.array_equal(adj.apply(image, Adjust(blur=0.0)), image)

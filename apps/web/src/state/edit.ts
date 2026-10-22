@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { emptyState, isEmptyState, type EditState } from '../engine/types'
+import { emptyState, isEmptyState, withDefaults, type EditState } from '../engine/types'
 
 export interface Snapshot {
   label: string
@@ -36,12 +36,16 @@ export const useEdit = create<EditStore>((set, get) => ({
 
   reset: (history, index) =>
     set({
-      history: history && history.length > 0 ? history : [{ label: 'Open', state: emptyState() }],
+      history:
+        history && history.length > 0
+          ? history.map((h) => ({ ...h, state: withDefaults(h.state) }))
+          : [{ label: 'Open', state: emptyState() }],
       index: index ?? (history ? history.length - 1 : 0),
       live: null,
     }),
 
   commit: (label, state) => {
+    state = withDefaults(state)
     const { history, index } = get()
     const current = history[index]
     if (current && same(current.state, state)) {
@@ -52,7 +56,7 @@ export const useEdit = create<EditStore>((set, get) => ({
     set({ history: next, index: next.length - 1, live: null })
   },
 
-  preview: (live) => set({ live: live ? clone(live) : null }),
+  preview: (live) => set({ live: live ? clone(withDefaults(live)) : null }),
   undo: () => set((s) => ({ index: Math.max(0, s.index - 1), live: null })),
   redo: () => set((s) => ({ index: Math.min(s.history.length - 1, s.index + 1), live: null })),
   jump: (i) => set((s) => ({ index: Math.min(s.history.length - 1, Math.max(0, i)), live: null })),

@@ -2002,3 +2002,223 @@ kbd,
 .eraser-actions .button-primary {
   grid-column: 1 / -1;
 }
+
+/* ---- layers ---- */
+.layers-panel {
+  display: grid;
+  gap: 10px;
+}
+.layer-list {
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+}
+.layer-list li {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border-radius: var(--px-radius-sm, 8px);
+}
+.layer-list li[data-active='true'] {
+  background: var(--px-accent-soft-bg, rgba(79, 182, 255, 0.12));
+}
+.layer-list li[data-hidden='true'] .layer-name {
+  opacity: 0.5;
+}
+.layer-name {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  color: inherit;
+  padding: 4px 6px;
+  cursor: pointer;
+  font: inherit;
+}
+.flip-v {
+  transform: rotate(180deg);
+}
+
+.layers-actions {
+  display: flex;
+  gap: 6px;
+}
+.layers-actions .button {
+  flex: 1;
+}
+
+.clone-source {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  pointer-events: none;
+  opacity: 0.9;
+  background:
+    linear-gradient(currentColor, currentColor) center / 2px 100% no-repeat,
+    linear-gradient(currentColor, currentColor) center / 100% 2px no-repeat;
+  color: var(--px-accent, #4fb6ff);
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.8));
+}
+
+/* ---- user guide ---- */
+.guide {
+  width: min(980px, 94vw);
+  height: min(680px, 88vh);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  padding: 0;
+  overflow: hidden;
+}
+.guide-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--px-border, rgba(255, 255, 255, 0.08));
+}
+.guide-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.guide-search {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--px-border, rgba(255, 255, 255, 0.12));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.guide-body {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 0;
+}
+.guide-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  overflow-y: auto;
+  border-right: 1px solid var(--px-border, rgba(255, 255, 255, 0.08));
+}
+.guide-nav button {
+  text-align: left;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  opacity: 0.8;
+}
+.guide-nav button:hover {
+  opacity: 1;
+  background: rgba(79, 182, 255, 0.08);
+}
+.guide-nav button[data-active='true'] {
+  opacity: 1;
+  background: rgba(79, 182, 255, 0.16);
+}
+.guide-page {
+  padding: 20px 26px 30px;
+  overflow-y: auto;
+  line-height: 1.6;
+  font-size: 14px;
+}
+.guide-page h4 {
+  margin: 0 0 2px;
+  font-size: 20px;
+}
+.guide-summary {
+  margin: 0 0 14px;
+  opacity: 0.65;
+}
+.guide-page ul,
+.guide-page ol {
+  margin: 8px 0 12px 20px;
+  display: grid;
+  gap: 6px;
+}
+.guide-tip {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(79, 182, 255, 0.1);
+}
+.guide-keys {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0;
+}
+.guide-keys > div {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  gap: 12px;
+  align-items: baseline;
+}
+.guide-keys dd {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .guide-body {
+    grid-template-columns: 1fr;
+  }
+  .guide-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--px-border, rgba(255, 255, 255, 0.08));
+  }
+  .guide-keys > div {
+    grid-template-columns: 1fr;
+  }
+}
+.guide-page ul {
+  list-style: disc;
+}
+.guide-page ol {
+  list-style: decimal;
+}
+.guide-page li::marker {
+  color: var(--px-accent, #4fb6ff);
+}
+
+.text-input {
+  width: 100%;
+  resize: vertical;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--px-border, rgba(255, 255, 255, 0.12));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.layers-panel hr {
+  border: 0;
+  border-top: 1px solid var(--px-border, rgba(255, 255, 255, 0.08));
+  margin: 4px 0;
+}
+
+.lasso-path {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.lasso-path path {
+  fill: rgba(79, 182, 255, 0.12);
+  stroke: var(--px-accent, #4fb6ff);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+}

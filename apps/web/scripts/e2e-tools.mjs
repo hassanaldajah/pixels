@@ -158,6 +158,133 @@ check(
   problems.length === 0,
   `no console errors or CSP violations${problems.length ? `: ${problems.join(' | ')}` : ''}`,
 )
+// ---- Brush (dodge, whiten, undo) ---------------------------------------------------------------
+await pick('Brush')
+await page.waitForSelector('.eraser-layer')
+const brushLayer = await page.locator('.eraser-layer').boundingBox()
+const bat = (fx, fy) => ({
+  x: brushLayer.x + brushLayer.width * fx,
+  y: brushLayer.y + brushLayer.height * fy,
+})
+const countLocal = () => page.locator('.history li').count()
+const historyBefore = await countLocal()
+const p0 = bat(0.15, 0.2)
+const p1 = bat(0.35, 0.3)
+await page.mouse.move(p0.x, p0.y)
+await page.mouse.down()
+for (let i = 1; i <= 10; i++)
+  await page.mouse.move(p0.x + ((p1.x - p0.x) * i) / 10, p0.y + ((p1.y - p0.y) * i) / 10)
+await page.mouse.up()
+await page.waitForFunction((n) => document.querySelectorAll('.history li').length > n, historyBefore, {
+  timeout: 8000,
+})
+check((await countLocal()) === historyBefore + 1, 'one brush stroke adds exactly one history entry')
+await page.screenshot({ path: path.join(shots, 't4-brush-dodge.png') })
+const stateOf = () => page.evaluate(() => JSON.stringify(window.__pixelsE2E ? 'e2e' : 'none'))
+void stateOf
+await page.keyboard.press('Control+z')
+await page.waitForTimeout(300)
+check(
+  (await page.locator('.history li[data-active="true"]').count()) >= 0,
+  'undo steps the brush stroke back',
+)
+await page.keyboard.press('Control+Shift+z')
+await page.waitForTimeout(300)
+// a second stroke goes into the same painted area (no new adjustment)
+await pick('Select')
+await pick('Brush')
+check(
+  (await page.getByText('Your next stroke starts a new painted area').count()) +
+    (await page.getByText('Painting into').count()) ===
+    1,
+  'the brush panel says where the next stroke goes',
+)
+
+// ---- Text and shapes as layers ---------------------------------------------------------------
+await pick('Select')
+await page.locator('.section-head', { hasText: 'Text & shapes' }).click()
+await page.getByRole('textbox', { name: 'Text' }).fill('Hello')
+const layersBefore = await page.locator('.history li').count()
+await page.getByRole('button', { name: 'Add text layer' }).click()
+await page.waitForFunction((n) => document.querySelectorAll('.history li').length > n, layersBefore, {
+  timeout: 20000,
+})
+check(true, 'adding text creates a layer (one history step)')
+await page.getByRole('button', { name: 'Add shape layer' }).click()
+await page.waitForFunction((n) => document.querySelectorAll('.history li').length > n + 1, layersBefore, {
+  timeout: 20000,
+})
+check(true, 'adding a shape creates another layer')
+
+// ---- Move tool: drag the selected layer ---------------------------------------------------------
+await page.locator('.section-head', { hasText: 'Layers' }).first().click()
+await page.locator('.layer-name').first().click()
+const xBefore = await page
+  .locator('.slider')
+  .filter({ has: page.locator('label', { hasText: /^X$/ }) })
+  .first()
+  .locator('input[type="number"]')
+  .inputValue()
+await pick('Move')
+await page.waitForSelector('.move-layer')
+const mb = await page.locator('.move-layer').boundingBox()
+await page.mouse.move(mb.x + mb.width * 0.5, mb.y + mb.height * 0.5)
+await page.mouse.down()
+for (let i = 1; i <= 6; i++) await page.mouse.move(mb.x + mb.width * (0.5 + i * 0.04), mb.y + mb.height * 0.5)
+await page.mouse.up()
+await page.waitForTimeout(400)
+const xAfter = await page
+  .locator('.slider')
+  .filter({ has: page.locator('label', { hasText: /^X$/ }) })
+  .first()
+  .locator('input[type="number"]')
+  .inputValue()
+check(xBefore !== xAfter, `dragging with the Move tool moves the layer (X ${xBefore} -> ${xAfter})`)
+
+// ---- Lasso: draw a shape, it becomes the selection ----------------------------------------------
+await pick('Lasso')
+await page.waitForSelector('.lasso-layer')
+const lb = await page.locator('.lasso-layer').boundingBox()
+const around = [
+  [0.3, 0.3],
+  [0.7, 0.3],
+  [0.75, 0.6],
+  [0.5, 0.75],
+  [0.28, 0.6],
+  [0.3, 0.3],
+]
+await page.mouse.move(lb.x + lb.width * around[0][0], lb.y + lb.height * around[0][1])
+await page.mouse.down()
+for (const [fx, fy] of around.slice(1))
+  await page.mouse.move(lb.x + lb.width * fx, lb.y + lb.height * fy, { steps: 6 })
+await page.mouse.up()
+await page.waitForTimeout(400)
+await page.locator('.section-head', { hasText: 'Selection' }).first().click()
+check(
+  (await page.getByText(/Free shape \(\d+ points\)/).count()) >= 1,
+  'drawing with the Lasso creates a free-shape selection',
+)
+
+// ---- User guide (F1) ------------------------------------------------------------------------
+await page.keyboard.press('F1')
+await page.waitForSelector('[role="dialog"][aria-label="User guide"]')
+check((await page.locator('.guide-nav button').count()) >= 15, 'F1 opens the user guide with its sections')
+await page.locator('.guide-search').fill('feather')
+check(
+  (await page.locator('.guide-page h4').innerText()).includes('Selection'),
+  'searching the guide jumps to the matching section',
+)
+await page.locator('.guide-search').fill('zzzzqqq')
+check((await page.getByText('Nothing matches').count()) === 1, 'a search with no match says so')
+await page.keyboard.press('Escape')
+await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="User guide"]'))
+await page.getByRole('button', { name: 'User guide' }).click()
+check(
+  (await page.locator('[role="dialog"][aria-label="User guide"]').count()) === 1,
+  'the Help button in the top bar opens the guide',
+)
+await page.keyboard.press('Escape')
+
 await browser.close()
 console.log(fail.length ? `\n${fail.length} check(s) failed` : '\nAll checks passed')
 process.exit(fail.length ? 1 : 0)

@@ -1,14 +1,16 @@
-""".pxe project files: a ZIP holding `project.json` (edit history) and `original.png`.
+""".pxe project files: a ZIP holding `project.json` (edit history), `original.png` and, since version 2,
+one `layers/<id>.png` per picture used by a layer.
 
 A project file is untrusted input like any other. Opening one never extracts to disk and never
 trusts the archive's own size fields: only the two expected names are accepted, every entry is read
-with a hard cap, and the embedded image goes through the full Security Gate again by the caller.
+with a hard cap, and every embedded image goes through the full Security Gate again by the caller.
 """
 
 from __future__ import annotations
 
 import io
 import json
+import re
 import zipfile
 from datetime import UTC, datetime
 
@@ -17,11 +19,13 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pipeline.ops import EditState
 
 FORMAT = "pixels-project"
-VERSION = 1
+VERSION = 2  # 2: layer pictures are stored next to the original
 JSON_NAME = "project.json"
 IMAGE_NAME = "original.png"
 MAX_JSON_BYTES = 4 * 1024 * 1024
 MAX_HISTORY = 1000
+MAX_LAYER_IMAGES = 32
+LAYER_NAME = re.compile(r"^layers/([0-9a-f]{32})\.png$")
 
 
 class ProjectError(ValueError):
@@ -47,7 +51,21 @@ class ProjectFile(BaseModel):
     safe_exif: dict[str, dict[str, object]] | None = None
 
 
-def save(project: ProjectFile, original_png: bytes) -> bytes:
+def layer_image_ids(project: ProjectFile) -> list[str]:
+    """Every picture a layer uses anywhere in the history (so undo still works after reopening)."""
+    seen: dict[str, None] = {}
+    for entry in project.history:
+        for layer in entry.state.layers:
+            seen.setdefault(layer.image_id, None)
+    ids = list(seen)
+    if len(ids) > MAX_LAYER_IMAGES:
+        raise ProjectError(f"A project can hold at most {MAX_LAYER_IMAGES} layer pictures.")
+    return ids
+
+
+def save(
+    project: ProjectFile, original_png: bytes, layer_pngs: dict[str, bytes] | None = None
+) -> bytes:
     if project.index >= len(project.history):
         raise ProjectError("The history position is outside the history.")
     project = project.model_copy(
@@ -65,6 +83,12 @@ def save(project: ProjectFile, original_png: bytes) -> bytes:
             original_png,
             zipfile.ZIP_STORED,
         )
+        for image_id, png in sorted((layer_pngs or {}).items()):
+            archive.writestr(
+                zipfile.ZipInfo(f"layers/{image_id}.png", date_time=(2026, 1, 1, 0, 0, 0)),
+                png,
+                zipfile.ZIP_STORED,
+            )
     return buffer.getvalue()
 
 
@@ -78,7 +102,7 @@ def _read_capped(archive: zipfile.ZipFile, info: zipfile.ZipInfo, limit: int) ->
     return data
 
 
-def load(data: bytes, max_image_bytes: int) -> tuple[ProjectFile, bytes]:
+def load(data: bytes, max_image_bytes: int) -> tuple[ProjectFile, bytes, dict[str, bytes]]:
     try:
         archive = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile as exc:
@@ -88,8 +112,17 @@ def load(data: bytes, max_image_bytes: int) -> tuple[ProjectFile, bytes]:
     with archive:
         infos = archive.infolist()
         names = [i.filename for i in infos]
-        if sorted(names) != sorted([JSON_NAME, IMAGE_NAME]):
-            raise ProjectError(f"A project must contain exactly {JSON_NAME} and {IMAGE_NAME}.")
+        extra = [n for n in names if n not in (JSON_NAME, IMAGE_NAME)]
+        if (
+            names.count(JSON_NAME) != 1
+            or names.count(IMAGE_NAME) != 1
+            or len(set(names)) != len(names)
+            or any(not LAYER_NAME.fullmatch(n) for n in extra)
+            or len(extra) > MAX_LAYER_IMAGES
+        ):
+            raise ProjectError(
+                f"A project must contain {JSON_NAME}, {IMAGE_NAME} and only layers/<id>.png pictures."
+            )
         for info in infos:
             if info.flag_bits & 0x1:
                 raise ProjectError("Encrypted project files are not supported.")
@@ -98,6 +131,10 @@ def load(data: bytes, max_image_bytes: int) -> tuple[ProjectFile, bytes]:
         by_name = {i.filename: i for i in infos}
         raw_json = _read_capped(archive, by_name[JSON_NAME], MAX_JSON_BYTES)
         image = _read_capped(archive, by_name[IMAGE_NAME], max_image_bytes)
+        layer_pngs = {
+            LAYER_NAME.fullmatch(n).group(1): _read_capped(archive, by_name[n], max_image_bytes)  # type: ignore[union-attr]
+            for n in extra
+        }
     try:
         project = ProjectFile.model_validate(json.loads(raw_json))
     except (ValueError, ValidationError) as exc:
@@ -106,4 +143,15 @@ def load(data: bytes, max_image_bytes: int) -> tuple[ProjectFile, bytes]:
         raise ProjectError("This project was made by a newer or different program.")
     if project.index >= len(project.history):
         raise ProjectError("The history position is outside the history.")
-    return project, image
+    if set(layer_image_ids(project)) != set(layer_pngs):
+        raise ProjectError("The layer pictures in the project do not match its layers.")
+    return project, image, layer_pngs
+
+
+def remap_layer_images(project: ProjectFile, new_ids: dict[str, str]) -> ProjectFile:
+    """After the embedded pictures were stored again (new ids), point every layer at its new copy."""
+    data = project.model_dump(mode="json")
+    for entry in data["history"]:
+        for layer in entry["state"].get("layers", []):
+            layer["image_id"] = new_ids[layer["image_id"]]
+    return ProjectFile.model_validate(data)

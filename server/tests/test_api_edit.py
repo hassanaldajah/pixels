@@ -426,3 +426,70 @@ def test_retouch_bakes_in_edits_and_rejects_bad_requests(client: TestClient) -> 
     assert (
         client.post(f"/api/images/{'a' * 32}/retouch/smooth", json={"state": {}}).status_code == 404
     )
+
+
+# --- layers ------------------------------------------------------------------------------------
+def _solid_png(w: int, h: int, color: tuple[int, int, int]) -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", (w, h), color).save(buffer, "PNG")
+    return buffer.getvalue()
+
+
+def test_export_composites_layers(client: TestClient) -> None:
+    base = upload(client, _solid_png(40, 30, (0, 0, 0)), "base.png")
+    top = upload(client, _solid_png(10, 10, (255, 0, 0)), "top.png")
+    state = {
+        "layers": [
+            {"id": "red001", "image_id": top["id"], "x": 5, "y": 5},
+            {"id": "half01", "image_id": top["id"], "x": 20, "y": 5, "opacity": 50},
+            {"id": "screen", "image_id": top["id"], "x": 30, "y": 20, "visible": False},
+        ]
+    }
+    response = client.post(
+        f"/api/images/{base['id']}/export", json={"state": state, "options": {"format": "png"}}
+    )
+    assert response.status_code == 200, response.text
+    with image(response.content) as out:
+        rgb = out.convert("RGB")
+        assert rgb.getpixel((8, 8)) == (255, 0, 0)
+        assert abs(rgb.getpixel((25, 8))[0] - 128) <= 1
+        assert rgb.getpixel((35, 25)) == (0, 0, 0)  # hidden
+        assert rgb.getpixel((2, 2)) == (0, 0, 0)
+
+
+def test_export_refuses_a_missing_layer_picture(client: TestClient) -> None:
+    base = upload(client, _solid_png(8, 8, (0, 0, 0)), "base.png")
+    state = {"layers": [{"id": "gone01", "image_id": "f" * 32}]}
+    response = client.post(
+        f"/api/images/{base['id']}/export", json={"state": state, "options": {"format": "png"}}
+    )
+    assert response.status_code == 422 and "no longer available" in response.text
+
+
+def test_project_keeps_layer_pictures_and_gates_them_again(client: TestClient) -> None:
+    base = upload(client, _solid_png(20, 20, (0, 0, 0)), "base.png")
+    top = upload(client, _solid_png(4, 4, (0, 255, 0)), "top.png")
+    layered = {"layers": [{"id": "green1", "image_id": top["id"], "x": 2, "y": 2}]}
+    history = [{"label": "Open", "state": {}}, {"label": "Add layer", "state": layered}]
+    saved = client.post(
+        "/api/projects/save",
+        json={"image_id": base["id"], "project": {"name": "L", "history": history, "index": 1}},
+    )
+    assert saved.status_code == 200, saved.text
+    with zipfile.ZipFile(io.BytesIO(saved.content)) as archive:
+        assert f"layers/{top['id']}.png" in archive.namelist()
+    opened = client.post(
+        "/api/projects/open", content=saved.content, headers={"X-Filename": "L.pxe"}
+    )
+    assert opened.status_code == 201, opened.text
+    new_layer_id = opened.json()["project"]["history"][1]["state"]["layers"][0]["image_id"]
+    assert new_layer_id != top["id"]  # a fresh copy that went through the gate
+    exported = client.post(
+        f"/api/images/{opened.json()['id']}/export",
+        json={
+            "state": opened.json()["project"]["history"][1]["state"],
+            "options": {"format": "png"},
+        },
+    )
+    with image(exported.content) as out:
+        assert out.convert("RGB").getpixel((3, 3)) == (0, 255, 0)

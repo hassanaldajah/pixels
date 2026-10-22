@@ -294,6 +294,419 @@ const imageId = await page.evaluate(() => {
 })
 check(Boolean(imageId), `uploaded the test image (${imageId?.slice(0, 8)}…)`)
 
+// Layers: a second picture (with soft transparency) goes through the Security Gate like any upload; the cases then
+// place and blend it on the GPU and on the server.
+const LW = 90
+const LH = 70
+const lraw = Buffer.alloc(LW * LH * 4)
+for (let y = 0; y < LH; y++)
+  for (let x = 0; x < LW; x++) {
+    const i = (y * LW + x) * 4
+    lraw[i] = Math.round(255 * (x / LW))
+    lraw[i + 1] = Math.round(255 * (1 - y / LH))
+    lraw[i + 2] = Math.round(255 * (0.5 + 0.5 * Math.sin((x + y) / 9)))
+    lraw[i + 3] = x < 12 ? Math.round((x / 12) * 255) : 255 // a soft left edge
+  }
+const layerPng = await sharp(lraw, { raw: { width: LW, height: LH, channels: 4 } })
+  .png()
+  .toBuffer()
+const layerId = await page.evaluate(async (bytes) => {
+  const r = await fetch('/api/images', {
+    method: 'POST',
+    body: new Uint8Array(bytes),
+    headers: { 'X-Filename': 'layer.png' },
+  })
+  return (await r.json()).id
+}, Array.from(layerPng))
+check(/^[0-9a-f]{32}$/.test(layerId ?? ''), 'uploaded the layer picture through the Security Gate')
+const lay = (over) => ({
+  id: 'layer1',
+  image_id: layerId,
+  name: 'L',
+  visible: true,
+  opacity: 100,
+  blend: 'normal',
+  x: 0,
+  y: 0,
+  scale: 1,
+  ...over,
+})
+const layered = { mean: 1.0, max: 4 }
+const layeredScaled = { mean: 1.5, max: 14 }
+cases.push(
+  [
+    'layer: normal, whole-pixel move',
+    { geometry: [], adjust: adjust(), layers: [lay({ x: 40, y: 30 })] },
+    layered,
+    0,
+  ],
+  [
+    'layer: multiply at 60%',
+    { geometry: [], adjust: adjust(), layers: [lay({ x: 100, y: 60, blend: 'multiply', opacity: 60 })] },
+    layered,
+    0,
+  ],
+  [
+    'layer: screen + overlay stack',
+    {
+      geometry: [],
+      adjust: adjust(),
+      layers: [
+        lay({ x: 10, y: 10, blend: 'screen' }),
+        lay({ id: 'layer2', x: 60, y: 40, blend: 'overlay', opacity: 80 }),
+      ],
+    },
+    layered,
+    0,
+  ],
+  [
+    'layer: darken, lighten, hidden',
+    {
+      geometry: [],
+      adjust: adjust(),
+      layers: [
+        lay({ x: 20, y: 80, blend: 'darken' }),
+        lay({ id: 'layer2', x: 90, y: 20, blend: 'lighten' }),
+        lay({ id: 'layer3', visible: false, blend: 'difference' }),
+      ],
+    },
+    layered,
+    0,
+  ],
+  [
+    'layer: difference + soft-light',
+    {
+      geometry: [],
+      adjust: adjust(),
+      layers: [
+        lay({ x: 30, y: 50, blend: 'difference' }),
+        lay({ id: 'layer2', x: 120, y: 90, blend: 'soft-light' }),
+      ],
+    },
+    layered,
+    0,
+  ],
+  [
+    'layer: scaled 1.7 at a fractional position',
+    { geometry: [], adjust: adjust(), layers: [lay({ x: 33.4, y: 21.7, scale: 1.7, opacity: 90 })] },
+    layeredScaled,
+    2,
+  ],
+  [
+    'layer: shrunk to 0.45',
+    { geometry: [], adjust: adjust(), layers: [lay({ x: 120, y: 70, scale: 0.45, blend: 'multiply' })] },
+    layeredScaled,
+    2,
+  ],
+  [
+    'selection: rectangle with feather',
+    {
+      geometry: [],
+      adjust: adjust({ exposure: 0.8, saturation: -40 }),
+      selection: { kind: 'rect', x: 40, y: 30, w: 120, h: 90, points: [], feather: 12, invert: false },
+    },
+    layered,
+    2,
+  ],
+  [
+    'selection: ellipse, inverted',
+    {
+      geometry: [],
+      adjust: adjust({ temperature: 40, contrast: 25 }),
+      selection: { kind: 'ellipse', x: 60, y: 40, w: 140, h: 100, points: [], feather: 8, invert: true },
+    },
+    layered,
+    2,
+  ],
+  [
+    'selection: polygon (lasso) with feather',
+    {
+      geometry: [],
+      adjust: adjust({ exposure: -0.6, vibrance: 50 }),
+      selection: {
+        kind: 'polygon',
+        x: 0,
+        y: 0,
+        w: 1,
+        h: 1,
+        points: [
+          [30, 20],
+          [220, 40],
+          [180, 160],
+          [90, 120],
+          [40, 170],
+        ],
+        feather: 10,
+        invert: false,
+      },
+    },
+    layered,
+    2,
+  ],
+  [
+    'local: graduated filter on top of global edits',
+    {
+      geometry: [],
+      adjust: adjust({ contrast: 10 }),
+      local: [
+        {
+          id: 'grad001',
+          name: 'Sky',
+          visible: true,
+          mask: { kind: 'linear', x0: 128, y0: 0, x1: 128, y1: 110, invert: true },
+          adjust: adjust({ exposure: -0.9, saturation: 35 }),
+        },
+      ],
+    },
+    layered,
+    2,
+  ],
+  [
+    'local: radial filter + graduated filter',
+    {
+      geometry: [],
+      adjust: adjust(),
+      local: [
+        {
+          id: 'rad0001',
+          name: 'Spot',
+          visible: true,
+          mask: { kind: 'radial', x0: 130, y0: 90, x1: 200, y1: 90, invert: false },
+          adjust: adjust({ exposure: 0.7, temperature: 30 }),
+        },
+        {
+          id: 'grad002',
+          name: 'Fade',
+          visible: true,
+          mask: { kind: 'linear', x0: 0, y0: 100, x1: 0, y1: 192, invert: false },
+          adjust: adjust({ saturation: -60, vignette: { amount: -20, midpoint: 50, feather: 50 } }),
+        },
+      ],
+    },
+    spatial,
+    2,
+  ],
+  [
+    'clone: two strokes with different sources',
+    {
+      geometry: [],
+      adjust: adjust(),
+      clone: [
+        {
+          dx: 80,
+          dy: 10,
+          r: 26,
+          hardness: 0.5,
+          flow: 0.9,
+          pts: [
+            [40, 90],
+            [56, 94],
+            [72, 98],
+            [88, 102],
+          ],
+        },
+        {
+          dx: -60,
+          dy: -20,
+          r: 18,
+          hardness: 0.9,
+          flow: 1,
+          pts: [
+            [190, 120],
+            [200, 124],
+          ],
+        },
+      ],
+    },
+    spatial,
+    2,
+  ],
+  [
+    'clone: after a crop, with adjustments on top',
+    {
+      geometry: [{ type: 'crop', x: 16, y: 12, w: 210, h: 160 }],
+      adjust: adjust({ exposure: 0.3, saturation: 15 }),
+      clone: [
+        {
+          dx: 50,
+          dy: 30,
+          r: 30,
+          hardness: 0.4,
+          flow: 0.8,
+          pts: [
+            [50, 40],
+            [66, 46],
+            [82, 52],
+          ],
+        },
+      ],
+    },
+    spatial,
+    2,
+  ],
+  ['blur (global)', { geometry: [], adjust: adjust({ blur: 5, saturation: 10 }) }, spatial, 0],
+  [
+    'blur (large) through a radial filter',
+    {
+      geometry: [],
+      adjust: adjust(),
+      local: [
+        {
+          id: 'blur0001',
+          name: 'Blur',
+          visible: true,
+          mask: { kind: 'radial', x0: 128, y0: 96, x1: 190, y1: 96, invert: true },
+          adjust: adjust({ blur: 14 }),
+        },
+      ],
+    },
+    spatial,
+    2,
+  ],
+  [
+    'brush: dodge strokes with an erased hole',
+    {
+      geometry: [],
+      adjust: adjust(),
+      local: [
+        {
+          id: 'brush001',
+          name: 'Dodge',
+          visible: true,
+          paint: {
+            strokes: [
+              {
+                r: 34,
+                hardness: 0.3,
+                flow: 0.5,
+                erase: false,
+                pts: [
+                  [60, 70],
+                  [78, 74],
+                  [96, 78],
+                  [114, 80],
+                  [132, 84],
+                ],
+              },
+              {
+                r: 22,
+                hardness: 0.8,
+                flow: 0.9,
+                erase: false,
+                pts: [
+                  [170, 120],
+                  [176, 126],
+                ],
+              },
+              { r: 10, hardness: 0.5, flow: 1, erase: true, pts: [[96, 78]] },
+            ],
+          },
+          adjust: adjust({ exposure: 0.8, contrast: 15 }),
+        },
+      ],
+    },
+    layered,
+    2,
+  ],
+  [
+    'brush: two painted areas after a crop',
+    {
+      geometry: [{ type: 'crop', x: 20, y: 10, w: 200, h: 160 }],
+      adjust: adjust({ saturation: 10 }),
+      local: [
+        {
+          id: 'teeth01',
+          name: 'Teeth',
+          visible: true,
+          paint: {
+            strokes: [
+              {
+                r: 18,
+                hardness: 0.6,
+                flow: 0.7,
+                erase: false,
+                pts: [
+                  [60, 50],
+                  [70, 52],
+                  [80, 54],
+                ],
+              },
+            ],
+          },
+          adjust: adjust({ saturation: -55, exposure: 0.3 }),
+        },
+        {
+          id: 'burn001',
+          name: 'Burn',
+          visible: true,
+          paint: {
+            strokes: [
+              {
+                r: 40,
+                hardness: 0.1,
+                flow: 0.4,
+                erase: false,
+                pts: [
+                  [150, 110],
+                  [165, 120],
+                ],
+              },
+            ],
+          },
+          adjust: adjust({ exposure: -0.7 }),
+        },
+      ],
+    },
+    layered,
+    2,
+  ],
+  [
+    'layer: linear fade',
+    {
+      geometry: [],
+      adjust: adjust(),
+      layers: [
+        lay({
+          x: 20,
+          y: 20,
+          scale: 2,
+          mask: { kind: 'linear', x0: 30, y0: 60, x1: 190, y1: 60, invert: false },
+        }),
+      ],
+    },
+    layeredScaled,
+    2,
+  ],
+  [
+    'layer: radial fade, inverted, multiply',
+    {
+      geometry: [],
+      adjust: adjust(),
+      layers: [
+        lay({
+          x: 40,
+          y: 30,
+          scale: 1.8,
+          blend: 'multiply',
+          mask: { kind: 'radial', x0: 110, y0: 80, x1: 170, y1: 80, invert: true },
+        }),
+      ],
+    },
+    layeredScaled,
+    2,
+  ],
+  [
+    'layer: after crop + adjustments',
+    {
+      geometry: [{ type: 'crop', x: 8, y: 8, w: 200, h: 150 }],
+      adjust: adjust({ exposure: 0.4, saturation: 20 }),
+      layers: [lay({ x: 50, y: 40, blend: 'overlay' })],
+    },
+    layered,
+    0,
+  ],
+)
+
 async function serverRender(state) {
   const response = await page.evaluate(
     async ([id, body]) => {

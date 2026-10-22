@@ -7,6 +7,30 @@ security gate.
 > **Everything runs on your computer, with ordinary algorithms: no AI models, no downloads, no cloud.**
 > That keeps it small (the Windows installer is about 37 MB), predictable and private.
 
+## Download
+
+Get the latest build from the [Releases page](https://github.com/hassanaldajah/pixels/releases/latest):
+
+| System  | File                                        |
+| ------- | ------------------------------------------- |
+| Windows | `pixels_<version>_x64-setup.exe`            |
+| Linux   | `pixels_<version>_amd64.AppImage` or `.deb` |
+
+Every file has a `.sha256` next to it. Check the download before you run it:
+
+```powershell
+# Windows
+certutil -hashfile pixels_0.1.1_x64-setup.exe SHA256
+```
+
+```bash
+# Linux
+sha256sum -c pixels_0.1.1_amd64.AppImage.sha256
+```
+
+The Windows installer is not signed (there is no paid certificate), so SmartScreen asks for confirmation the first
+time. The app is free, works offline and sends nothing anywhere.
+
 ## What works today
 
 - **Security Gate**: every file is size-capped, type-checked by its real bytes, scanned for

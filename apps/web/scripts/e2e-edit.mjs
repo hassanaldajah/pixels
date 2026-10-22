@@ -444,6 +444,49 @@ cases.push(
     2,
   ],
   [
+    'local: graduated filter on top of global edits',
+    {
+      geometry: [],
+      adjust: adjust({ contrast: 10 }),
+      local: [
+        {
+          id: 'grad001',
+          name: 'Sky',
+          visible: true,
+          mask: { kind: 'linear', x0: 128, y0: 0, x1: 128, y1: 110, invert: true },
+          adjust: adjust({ exposure: -0.9, saturation: 35 }),
+        },
+      ],
+    },
+    layered,
+    2,
+  ],
+  [
+    'local: radial filter + graduated filter',
+    {
+      geometry: [],
+      adjust: adjust(),
+      local: [
+        {
+          id: 'rad0001',
+          name: 'Spot',
+          visible: true,
+          mask: { kind: 'radial', x0: 130, y0: 90, x1: 200, y1: 90, invert: false },
+          adjust: adjust({ exposure: 0.7, temperature: 30 }),
+        },
+        {
+          id: 'grad002',
+          name: 'Fade',
+          visible: true,
+          mask: { kind: 'linear', x0: 0, y0: 100, x1: 0, y1: 192, invert: false },
+          adjust: adjust({ saturation: -60, vignette: { amount: -20, midpoint: 50, feather: 50 } }),
+        },
+      ],
+    },
+    spatial,
+    2,
+  ],
+  [
     'layer: linear fade',
     {
       geometry: [],

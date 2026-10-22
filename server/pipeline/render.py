@@ -28,7 +28,13 @@ def render_base(source: Array, state: EditState, max_pixels: int = DEFAULT_MAX_P
     image = geometry.apply(source, state.geometry, max_pixels) if state.geometry else source
     adjusted = adjust.apply(image, state.adjust, scale=1.0)
     if state.selection is not None and not state.adjust.is_identity():
-        return selection.apply_inside(image, adjusted, state.selection)
+        adjusted = selection.apply_inside(image, adjusted, state.selection)
+    for local in state.local:  # each one blends in where its gradient is opaque
+        if not local.visible or local.adjust.is_identity():
+            continue
+        tweaked = adjust.apply(adjusted, local.adjust, scale=1.0)
+        weight = layers.mask_values(local.mask, adjusted.shape[1], adjusted.shape[0])
+        adjusted = np.asarray(adjusted + (tweaked - adjusted) * weight, dtype=np.float32)
     return adjusted
 
 

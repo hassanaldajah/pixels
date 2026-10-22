@@ -263,6 +263,28 @@ void main() {
 }`
 
 /**
+ * Blends an adjusted copy in where a gradient (the same one layers use) is opaque. Mirrors server/pipeline/render.py.
+ */
+export const MIX_FRAG = `${HEADER}
+uniform sampler2D u_before;
+uniform sampler2D u_after;
+uniform int u_maskKind;        // 1 linear, 2 radial
+uniform vec4 u_mask;           // x0, y0, x1, y1 in full-resolution canvas pixels
+uniform int u_maskInvert;
+uniform float u_preview;       // preview scale (preview px per full px)
+
+void main() {
+  ivec2 ip = ivec2(gl_FragCoord.xy);
+  vec2 g = gl_FragCoord.xy / u_preview;
+  vec2 d = u_mask.zw - u_mask.xy;
+  float v = u_maskKind == 1
+    ? clamp(dot(g - u_mask.xy, d) / dot(d, d), 0.0, 1.0)
+    : 1.0 - clamp(length(g - u_mask.xy) / length(d), 0.0, 1.0);
+  if (u_maskInvert == 1) v = 1.0 - v;
+  outColor = mix(texelFetch(u_before, ip, 0), texelFetch(u_after, ip, 0), v);
+}`
+
+/**
  * Keeps the adjusted picture inside a selection and the original outside it. Mirrors server/pipeline/selection.py.
  */
 export const SELECT_FRAG = `${HEADER}

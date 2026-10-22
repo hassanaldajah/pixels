@@ -116,11 +116,23 @@ export interface Layer {
   mask?: LayerMask | null
 }
 
+export const MAX_LOCAL = 8
+
+/** Adjustments that apply only where a gradient is opaque (a graduated or radial filter). */
+export interface LocalAdjust {
+  id: string
+  name: string
+  visible: boolean
+  mask: LayerMask
+  adjust: Adjust
+}
+
 export interface EditState {
   geometry: GeoOp[]
   adjust: Adjust
   pixelart?: PixelArt | null
   selection?: Selection | null
+  local?: LocalAdjust[]
   layers?: Layer[]
 }
 
@@ -171,7 +183,11 @@ export function adjustEquals(a: Adjust, b: Adjust): boolean {
 export const isIdentityAdjust = (a: Adjust): boolean => adjustEquals(a, defaultAdjust())
 
 export const isEmptyState = (s: EditState): boolean =>
-  s.geometry.length === 0 && isIdentityAdjust(s.adjust) && !s.pixelart && !(s.layers?.length ?? 0)
+  s.geometry.length === 0 &&
+  isIdentityAdjust(s.adjust) &&
+  !s.pixelart &&
+  !(s.layers?.length ?? 0) &&
+  !(s.local?.length ?? 0)
 
 export const hasPointAdjustments = (a: Adjust): boolean => {
   const base = defaultAdjust()

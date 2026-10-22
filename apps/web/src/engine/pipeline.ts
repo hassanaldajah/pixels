@@ -7,6 +7,7 @@ import { curveLut } from './curves'
 import { hexToFill, invert, plan, scaleOp, type Mat3 } from './geometry'
 import {
   BLEND_FRAG,
+  MIX_FRAG,
   SELECT_FRAG,
   BLUR_FRAG,
   FINISH_FRAG,
@@ -23,6 +24,7 @@ import {
   type Adjust,
   type EditState,
   type Layer,
+  type LayerMask,
   type Selection,
 } from './types'
 
@@ -99,7 +101,7 @@ class Program {
 
 export class GpuPipeline {
   private readonly programs: Record<
-    'geometry' | 'point' | 'blur' | 'noise' | 'finish' | 'blend' | 'select',
+    'geometry' | 'point' | 'blur' | 'noise' | 'finish' | 'blend' | 'select' | 'mix',
     Program
   >
   private readonly framebuffer: WebGLFramebuffer
@@ -125,6 +127,7 @@ export class GpuPipeline {
       finish: new Program(gl, FINISH_FRAG),
       blend: new Program(gl, BLEND_FRAG),
       select: new Program(gl, SELECT_FRAG),
+      mix: new Program(gl, MIX_FRAG),
     }
     const fb = gl.createFramebuffer()
     const vao = gl.createVertexArray()
@@ -409,6 +412,48 @@ export class GpuPipeline {
     return out
   }
 
+  /** Point adjustments, noise reduction, then sharpen/vignette/grain on `input`. Returns `input` itself if nothing is set. */
+  private adjustChain(input: Pooled, a: Adjust, f: number): Pooled {
+    const needsFinish = a.sharpen.amount > 0 || a.vignette.amount !== 0 || a.grain.amount > 0
+    const needsNoise = a.noise_reduction > 0
+    if (!(hasPointAdjustments(a) || needsNoise || needsFinish)) return input
+    let stage: Pooled | null = null
+    if (hasPointAdjustments(a)) stage = this.pointPass(input, a)
+    if (needsNoise) {
+      const base: Pooled = stage ?? this.copyTo(input)
+      const denoised = this.noisePass(base, a, f)
+      if (stage) stage.busy = false
+      stage = denoised
+    }
+    if (needsFinish) {
+      const base: Pooled = stage ?? this.copyTo(input)
+      const finished = this.finishPass(base, a, f)
+      if (stage) stage.busy = false
+      stage = finished
+    } else if (stage && stage.format !== 'rgba8') {
+      const quantised = this.quantise(stage)
+      stage.busy = false
+      stage = quantised
+    }
+    return stage ?? input
+  }
+
+  /** Blend `after` over `before` where the gradient is opaque. */
+  private mixPass(before: Pooled, after: Pooled, mask: LayerMask, preview: number): Pooled {
+    const { gl } = this
+    const out = this.acquire(before.w, before.h, 'rgba8')
+    const p = this.programs.mix
+    this.pass(p, out, () => {
+      this.bindTexture(0, before.texture, p, 'u_before')
+      this.bindTexture(1, after.texture, p, 'u_after')
+      p.i('u_maskKind', mask.kind === 'linear' ? 1 : 2)
+      gl.uniform4f(p.loc('u_mask'), mask.x0, mask.y0, mask.x1, mask.y1)
+      p.i('u_maskInvert', mask.invert ? 1 : 0)
+      p.f('u_preview', preview)
+    })
+    return out
+  }
+
   /** Keep the adjusted picture inside the selection and the original outside it. */
   private selectPass(before: Pooled, after: Pooled, sel: Selection, preview: number): Pooled {
     const { gl } = this
@@ -476,34 +521,20 @@ export class GpuPipeline {
     }
     const a = state.adjust
 
-    let adjusted: Pooled = geometryPooled
-    const needsFinish = a.sharpen.amount > 0 || a.vignette.amount !== 0 || a.grain.amount > 0
-    const needsNoise = a.noise_reduction > 0
-    if (hasPointAdjustments(a) || needsNoise || needsFinish) {
-      let stage: Pooled | null = null
-      if (hasPointAdjustments(a)) stage = this.pointPass(geometryPooled, a)
-      if (needsNoise) {
-        const base: Pooled = stage ?? this.copyTo(geometryPooled)
-        const denoised = this.noisePass(base, a, f)
-        if (stage) stage.busy = false
-        stage = denoised
-      }
-      if (needsFinish) {
-        const base: Pooled = stage ?? this.copyTo(geometryPooled)
-        const finished = this.finishPass(base, a, f)
-        if (stage) stage.busy = false
-        stage = finished
-      } else if (stage && stage.format !== 'rgba8') {
-        const quantised = this.quantise(stage)
-        stage.busy = false
-        stage = quantised
-      }
-      adjusted = stage ?? geometryPooled
-    }
+    let adjusted: Pooled = this.adjustChain(geometryPooled, a, f)
     if (state.selection && adjusted !== geometryPooled) {
       const masked = this.selectPass(geometryPooled, adjusted, state.selection, f)
       adjusted.busy = false
       adjusted = masked
+    }
+    for (const local of state.local ?? []) {
+      if (!local.visible) continue
+      const tweaked = this.adjustChain(adjusted, local.adjust, f)
+      if (tweaked === adjusted) continue
+      const mixed = this.mixPass(adjusted, tweaked, local.mask, f)
+      if (adjusted !== geometryPooled) adjusted.busy = false
+      tweaked.busy = false
+      adjusted = mixed
     }
     for (const layer of state.layers ?? []) {
       if (!layer.visible || layer.opacity <= 0) continue

@@ -312,11 +312,32 @@ class Layer(_Model):
         return value
 
 
+MAX_LOCAL = 8
+
+
+class LocalAdjust(_Model):
+    """Adjustments that apply only where a gradient says so (a graduated or radial filter)."""
+
+    id: str
+    name: str = Field(default="Local adjustment", max_length=64)
+    visible: bool = True
+    mask: LayerMask
+    adjust: Adjust = Field(default_factory=Adjust)
+
+    @field_validator("id")
+    @classmethod
+    def _id(cls, value: str) -> str:
+        if not LAYER_ID.fullmatch(value):
+            raise ValueError("an id is 6 to 32 lowercase letters and digits")
+        return value
+
+
 class EditState(_Model):
     geometry: list[GeoOp] = Field(default_factory=list, max_length=MAX_GEOMETRY_OPS)
     adjust: Adjust = Field(default_factory=Adjust)
     pixelart: PixelArt | None = None
     selection: Selection | None = None  # limits the adjustments to this area
+    local: list[LocalAdjust] = Field(default_factory=list, max_length=MAX_LOCAL)
     # Bottom to top: layers[0] sits just above the edited picture.
     layers: list[Layer] = Field(default_factory=list, max_length=MAX_LAYERS)
 
@@ -325,4 +346,11 @@ class EditState(_Model):
     def _unique(cls, value: list[Layer]) -> list[Layer]:
         if len({layer.id for layer in value}) != len(value):
             raise ValueError("layer ids must be unique")
+        return value
+
+    @field_validator("local")
+    @classmethod
+    def _unique_local(cls, value: list[LocalAdjust]) -> list[LocalAdjust]:
+        if len({item.id for item in value}) != len(value):
+            raise ValueError("local adjustment ids must be unique")
         return value

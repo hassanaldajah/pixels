@@ -208,10 +208,16 @@ export function LayersPanel() {
           </label>
           {current.mask && (
             <MaskControls
-              layerId={current.id}
               mask={current.mask}
               width={image.width}
               height={image.height}
+              onChange={(patch, commit) =>
+                (commit ? commitLayer : (_l: string, id: string, p: object) => previewLayer(id, p))(
+                  'Layer fade',
+                  current.id,
+                  { mask: { ...current.mask!, ...patch } },
+                )
+              }
             />
           )}
         </Group>
@@ -220,25 +226,17 @@ export function LayersPanel() {
   )
 }
 
-function MaskControls({
-  layerId,
+export function MaskControls({
   mask,
   width,
   height,
+  onChange,
 }: {
-  layerId: string
   mask: LayerMask
   width: number
   height: number
+  onChange: (patch: Partial<LayerMask>, commit: boolean) => void
 }) {
-  const set = (patch: Partial<LayerMask>, commit: boolean) =>
-    (commit ? commitLayer : (_l: string, id: string, p: object) => previewLayer(id, p))(
-      'Layer fade',
-      layerId,
-      {
-        mask: { ...mask, ...patch },
-      },
-    )
   const point = (label: string, key: 'x0' | 'y0' | 'x1' | 'y1', max: number) => (
     <Slider
       key={key}
@@ -248,8 +246,8 @@ function MaskControls({
       max={max * 2}
       neutral={0}
       unit="px"
-      onPreview={(v) => set({ [key]: Math.round(v) }, false)}
-      onCommit={(v) => set({ [key]: Math.round(v) }, true)}
+      onPreview={(v) => onChange({ [key]: Math.round(v) }, false)}
+      onCommit={(v) => onChange({ [key]: Math.round(v) }, true)}
     />
   )
   return (
@@ -258,7 +256,7 @@ function MaskControls({
       {point(mask.kind === 'linear' ? 'Start Y' : 'Centre Y', 'y0', height)}
       {point(mask.kind === 'linear' ? 'End X' : 'Edge X', 'x1', width)}
       {point(mask.kind === 'linear' ? 'End Y' : 'Edge Y', 'y1', height)}
-      <Check label="Invert" checked={mask.invert} onChange={(v) => set({ invert: v }, true)} />
+      <Check label="Invert" checked={mask.invert} onChange={(v) => onChange({ invert: v }, true)} />
     </>
   )
 }

@@ -15,7 +15,15 @@ const edit = (id: string, patch: (item: LocalAdjust) => LocalAdjust) =>
 const previewList = (local: LocalAdjust[]) => useEdit.getState().preview({ ...committedState(), local })
 
 type Key =
-  'exposure' | 'contrast' | 'highlights' | 'shadows' | 'temperature' | 'tint' | 'vibrance' | 'saturation'
+  | 'blur'
+  | 'exposure'
+  | 'contrast'
+  | 'highlights'
+  | 'shadows'
+  | 'temperature'
+  | 'tint'
+  | 'vibrance'
+  | 'saturation'
 const ROWS: { key: Key; label: string; min: number; max: number; step?: number; digits?: number }[] = [
   { key: 'exposure', label: 'Exposure', min: -3, max: 3, step: 0.05, digits: 2 },
   { key: 'contrast', label: 'Contrast', min: -100, max: 100 },
@@ -25,6 +33,7 @@ const ROWS: { key: Key; label: string; min: number; max: number; step?: number; 
   { key: 'tint', label: 'Tint', min: -100, max: 100 },
   { key: 'vibrance', label: 'Vibrance', min: -100, max: 100 },
   { key: 'saturation', label: 'Saturation', min: -100, max: 100 },
+  { key: 'blur', label: 'Blur', min: 0, max: 32, step: 0.5, digits: 1 },
 ]
 
 function startMask(kind: LayerMask['kind'], w: number, h: number): LayerMask {

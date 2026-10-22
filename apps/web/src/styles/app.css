@@ -2053,3 +2053,17 @@ kbd,
 .layers-actions .button {
   flex: 1;
 }
+
+.clone-source {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  pointer-events: none;
+  opacity: 0.9;
+  background:
+    linear-gradient(currentColor, currentColor) center / 2px 100% no-repeat,
+    linear-gradient(currentColor, currentColor) center / 100% 2px no-repeat;
+  color: var(--px-accent, #4fb6ff);
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.8));
+}

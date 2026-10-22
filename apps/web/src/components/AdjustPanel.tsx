@@ -152,6 +152,7 @@ export function AdjustPanel() {
       </Group>
       <Group title="Detail">
         <Row label="Noise reduction" path="noise_reduction" min={0} max={100} />
+        <Row label="Blur" path="blur" min={0} max={32} step={0.5} digits={1} unit="px" />
         <Row label="Sharpen" path="sharpen.amount" min={0} max={300} />
         <Row
           label="Radius"

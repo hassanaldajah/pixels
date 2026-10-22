@@ -487,6 +487,83 @@ cases.push(
     2,
   ],
   [
+    'clone: two strokes with different sources',
+    {
+      geometry: [],
+      adjust: adjust(),
+      clone: [
+        {
+          dx: 80,
+          dy: 10,
+          r: 26,
+          hardness: 0.5,
+          flow: 0.9,
+          pts: [
+            [40, 90],
+            [56, 94],
+            [72, 98],
+            [88, 102],
+          ],
+        },
+        {
+          dx: -60,
+          dy: -20,
+          r: 18,
+          hardness: 0.9,
+          flow: 1,
+          pts: [
+            [190, 120],
+            [200, 124],
+          ],
+        },
+      ],
+    },
+    spatial,
+    2,
+  ],
+  [
+    'clone: after a crop, with adjustments on top',
+    {
+      geometry: [{ type: 'crop', x: 16, y: 12, w: 210, h: 160 }],
+      adjust: adjust({ exposure: 0.3, saturation: 15 }),
+      clone: [
+        {
+          dx: 50,
+          dy: 30,
+          r: 30,
+          hardness: 0.4,
+          flow: 0.8,
+          pts: [
+            [50, 40],
+            [66, 46],
+            [82, 52],
+          ],
+        },
+      ],
+    },
+    spatial,
+    2,
+  ],
+  ['blur (global)', { geometry: [], adjust: adjust({ blur: 5, saturation: 10 }) }, spatial, 0],
+  [
+    'blur (large) through a radial filter',
+    {
+      geometry: [],
+      adjust: adjust(),
+      local: [
+        {
+          id: 'blur0001',
+          name: 'Blur',
+          visible: true,
+          mask: { kind: 'radial', x0: 128, y0: 96, x1: 190, y1: 96, invert: true },
+          adjust: adjust({ blur: 14 }),
+        },
+      ],
+    },
+    spatial,
+    2,
+  ],
+  [
     'brush: dodge strokes with an erased hole',
     {
       geometry: [],

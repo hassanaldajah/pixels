@@ -24,9 +24,11 @@ import {
   isIdentityCurve,
   type Adjust,
   type EditState,
+  type CloneStroke,
   type Layer,
   type LayerMask,
   type LocalAdjust,
+  type Paint,
   type Selection,
 } from './types'
 
@@ -419,7 +421,8 @@ export class GpuPipeline {
   private adjustChain(input: Pooled, a: Adjust, f: number): Pooled {
     const needsFinish = a.sharpen.amount > 0 || a.vignette.amount !== 0 || a.grain.amount > 0
     const needsNoise = a.noise_reduction > 0
-    if (!(hasPointAdjustments(a) || needsNoise || needsFinish)) return input
+    const needsBlur = a.blur > 0
+    if (!(hasPointAdjustments(a) || needsNoise || needsBlur || needsFinish)) return input
     let stage: Pooled | null = null
     if (hasPointAdjustments(a)) stage = this.pointPass(input, a)
     if (needsNoise) {
@@ -427,6 +430,12 @@ export class GpuPipeline {
       const denoised = this.noisePass(base, a, f)
       if (stage) stage.busy = false
       stage = denoised
+    }
+    if (needsBlur) {
+      const base: Pooled = stage ?? this.copyTo(input)
+      const blurred = this.blur(base, a.blur * f)
+      base.busy = false
+      stage = blurred
     }
     if (needsFinish) {
       const base: Pooled = stage ?? this.copyTo(input)
@@ -447,7 +456,8 @@ export class GpuPipeline {
     const out = this.acquire(before.w, before.h, 'rgba8')
     const p = this.programs.mix
     const mask: LayerMask | null = local.mask ?? null
-    const painted = !mask && local.paint ? this.paintTexture(local, before.w, before.h, preview) : null
+    const painted =
+      !mask && local.paint ? this.paintTexture(local.id, local.paint, before.w, before.h, preview) : null
     this.pass(p, out, () => {
       this.bindTexture(0, before.texture, p, 'u_before')
       this.bindTexture(1, after.texture, p, 'u_after')
@@ -455,18 +465,55 @@ export class GpuPipeline {
       p.i('u_maskKind', painted ? 3 : mask?.kind === 'linear' ? 1 : 2)
       gl.uniform4f(p.loc('u_mask'), mask?.x0 ?? 0, mask?.y0 ?? 0, mask?.x1 ?? 1, mask?.y1 ?? 1)
       p.i('u_maskInvert', mask?.invert ? 1 : 0)
+      p.i('u_useShift', 0)
+      p.f('u_preview', preview)
+    })
+    return out
+  }
+
+  /** One clone-stamp stroke: copy the picture shifted by (dx, dy) onto `before` where the brush is opaque. */
+  private clonePass(
+    before: Pooled,
+    base: Pooled,
+    stroke: CloneStroke,
+    index: number,
+    preview: number,
+  ): Pooled {
+    const { gl } = this
+    const out = this.acquire(before.w, before.h, 'rgba8')
+    const p = this.programs.mix
+    const mask = this.paintTexture(
+      `clone${index}`,
+      {
+        strokes: [
+          { r: stroke.r, hardness: stroke.hardness, flow: stroke.flow, erase: false, pts: stroke.pts },
+        ],
+      },
+      before.w,
+      before.h,
+      preview,
+    )
+    this.pass(p, out, () => {
+      this.bindTexture(0, before.texture, p, 'u_before')
+      this.bindTexture(1, base.texture, p, 'u_after')
+      this.bindTexture(2, mask, p, 'u_paint')
+      p.i('u_maskKind', 3)
+      gl.uniform4f(p.loc('u_mask'), 0, 0, 1, 1)
+      p.i('u_maskInvert', 0)
+      p.i('u_useShift', 1)
+      gl.uniform2f(p.loc('u_shift'), stroke.dx * preview, stroke.dy * preview)
       p.f('u_preview', preview)
     })
     return out
   }
 
   /** The brush strokes of a painted adjustment as an R8 texture at preview size (cached until the strokes change). */
-  private paintTexture(local: LocalAdjust, w: number, h: number, preview: number): WebGLTexture {
+  private paintTexture(id: string, paint: Paint, w: number, h: number, preview: number): WebGLTexture {
     const { gl } = this
-    const key = paintKey(local.paint as NonNullable<LocalAdjust['paint']>, w, h)
-    const cached = this.paintTextures.get(local.id)
+    const key = paintKey(paint, w, h)
+    const cached = this.paintTextures.get(id)
     if (cached?.key === key) return cached.texture
-    const data = rasterisePaint(local.paint as NonNullable<LocalAdjust['paint']>, w, h, preview)
+    const data = rasterisePaint(paint, w, h, preview)
     const texture = cached?.texture ?? gl.createTexture()
     if (!texture) throw new Error('Could not create a texture')
     gl.bindTexture(gl.TEXTURE_2D, texture)
@@ -474,7 +521,7 @@ export class GpuPipeline {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, w, h, 0, gl.RED, gl.UNSIGNED_BYTE, data)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
     this.setNearest(texture)
-    this.paintTextures.set(local.id, { texture, key })
+    this.paintTextures.set(id, { texture, key })
     return texture
   }
 
@@ -545,9 +592,17 @@ export class GpuPipeline {
     }
     const a = state.adjust
 
-    let adjusted: Pooled = this.adjustChain(geometryPooled, a, f)
-    if (state.selection && adjusted !== geometryPooled) {
-      const masked = this.selectPass(geometryPooled, adjusted, state.selection, f)
+    // clone stamp: retouched pixels become the base the adjustments run on
+    let base: Pooled = geometryPooled
+    ;(state.clone ?? []).forEach((stroke, i) => {
+      const next = this.clonePass(base, geometryPooled, stroke, i, f)
+      if (base !== geometryPooled) base.busy = false
+      base = next
+    })
+
+    let adjusted: Pooled = this.adjustChain(base, a, f)
+    if (state.selection && adjusted !== base) {
+      const masked = this.selectPass(base, adjusted, state.selection, f)
       adjusted.busy = false
       adjusted = masked
     }
@@ -556,7 +611,7 @@ export class GpuPipeline {
       const tweaked = this.adjustChain(adjusted, local.adjust, f)
       if (tweaked === adjusted) continue
       const mixed = this.mixPass(adjusted, tweaked, local, f)
-      if (adjusted !== geometryPooled) adjusted.busy = false
+      if (adjusted !== base) adjusted.busy = false
       tweaked.busy = false
       adjusted = mixed
     }
@@ -564,7 +619,7 @@ export class GpuPipeline {
       if (!layer.visible || layer.opacity <= 0) continue
       const next = this.blendPass(adjusted, layer, f)
       if (!next) continue
-      if (adjusted !== geometryPooled) adjusted.busy = false
+      if (adjusted !== base) adjusted.busy = false
       adjusted = next
     }
     this.mipmapIfOwned(adjusted)

@@ -179,6 +179,7 @@ class Adjust(_Model):
     hsl: Hsl = Field(default_factory=Hsl)
     curves: Curves = Field(default_factory=Curves)
     noise_reduction: float = Field(default=0.0, ge=0, le=100)
+    blur: float = Field(default=0.0, ge=0, le=32)  # Gaussian blur, sigma in source pixels
     sharpen: Sharpen = Field(default_factory=Sharpen)
     vignette: Vignette = Field(default_factory=Vignette)
     grain: Grain = Field(default_factory=Grain)
@@ -313,6 +314,7 @@ class Layer(_Model):
 
 
 MAX_LOCAL = 8
+MAX_CLONE = 60
 MAX_STROKES = 300
 MAX_DABS = 40_000
 
@@ -348,6 +350,25 @@ class Paint(_Model):
         return value
 
 
+class ClonePaint(_Model):
+    """One clone-stamp stroke: copies from (x + dx, y + dy) onto the dabs at `pts`."""
+
+    dx: int = Field(ge=-100_000, le=100_000)
+    dy: int = Field(ge=-100_000, le=100_000)
+    r: float = Field(ge=1, le=4000)
+    hardness: float = Field(default=0.5, ge=0, le=1)
+    flow: float = Field(default=0.6, ge=0.01, le=1)
+    pts: list[list[float]] = Field(min_length=1, max_length=4000)
+
+    @field_validator("pts")
+    @classmethod
+    def _points(cls, value: list[list[float]]) -> list[list[float]]:
+        for point in value:
+            if len(point) != 2 or any(abs(c) > 1e6 for c in point):
+                raise ValueError("each dab must be [x, y]")
+        return value
+
+
 class LocalAdjust(_Model):
     """Adjustments that apply only where a gradient says so (a graduated or radial filter)."""
 
@@ -378,6 +399,7 @@ class EditState(_Model):
     pixelart: PixelArt | None = None
     selection: Selection | None = None  # limits the adjustments to this area
     local: list[LocalAdjust] = Field(default_factory=list, max_length=MAX_LOCAL)
+    clone: list[ClonePaint] = Field(default_factory=list, max_length=MAX_CLONE)
     # Bottom to top: layers[0] sits just above the edited picture.
     layers: list[Layer] = Field(default_factory=list, max_length=MAX_LAYERS)
 
@@ -386,6 +408,13 @@ class EditState(_Model):
     def _unique(cls, value: list[Layer]) -> list[Layer]:
         if len({layer.id for layer in value}) != len(value):
             raise ValueError("layer ids must be unique")
+        return value
+
+    @field_validator("clone")
+    @classmethod
+    def _clone_total(cls, value: list[ClonePaint]) -> list[ClonePaint]:
+        if sum(len(s.pts) for s in value) > MAX_DABS:
+            raise ValueError(f"clone strokes can hold at most {MAX_DABS} dabs")
         return value
 
     @field_validator("local")

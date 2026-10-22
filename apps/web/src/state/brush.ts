@@ -9,7 +9,7 @@ import {
 } from '../engine/types'
 import { committedState, useEdit } from './edit'
 
-export type BrushMode = 'dodge' | 'burn' | 'eyes' | 'teeth' | 'warm' | 'soft'
+export type BrushMode = 'dodge' | 'burn' | 'eyes' | 'teeth' | 'warm' | 'soft' | 'blur'
 
 interface Preset {
   label: string
@@ -18,7 +18,7 @@ interface Preset {
   adjust: Partial<
     Pick<
       Adjust,
-      'exposure' | 'contrast' | 'highlights' | 'shadows' | 'temperature' | 'saturation' | 'vibrance'
+      'exposure' | 'contrast' | 'highlights' | 'shadows' | 'temperature' | 'saturation' | 'vibrance' | 'blur'
     >
   >
 }
@@ -48,6 +48,11 @@ export const PRESETS: Record<BrushMode, Preset> = {
     label: 'Warm glow',
     hint: 'Warmer, brighter colour where you paint.',
     adjust: { temperature: 35, exposure: 0.25, vibrance: 15 },
+  },
+  blur: {
+    label: 'Blur',
+    hint: 'Blur where you paint: a soft background, hidden detail.',
+    adjust: { blur: 6 },
   },
   soft: {
     label: 'Soften',

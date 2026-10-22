@@ -32,6 +32,7 @@ export interface Adjust {
   hsl: { hue: number[]; sat: number[]; lum: number[] }
   curves: { master: CurvePoints; r: CurvePoints; g: CurvePoints; b: CurvePoints }
   noise_reduction: number
+  blur: number
   sharpen: { amount: number; radius: number; threshold: number }
   vignette: { amount: number; midpoint: number; feather: number }
   grain: { amount: number; size: number; seed: number }
@@ -117,6 +118,17 @@ export interface Layer {
 }
 
 export const MAX_LOCAL = 8
+export const MAX_CLONE = 60
+
+/** One clone-stamp stroke: copies from (x + dx, y + dy) onto the dabs at `pts`. */
+export interface CloneStroke {
+  dx: number
+  dy: number
+  r: number
+  hardness: number
+  flow: number
+  pts: [number, number][]
+}
 
 export interface Stroke {
   r: number
@@ -148,6 +160,7 @@ export interface EditState {
   pixelart?: PixelArt | null
   selection?: Selection | null
   local?: LocalAdjust[]
+  clone?: CloneStroke[]
   layers?: Layer[]
 }
 
@@ -176,10 +189,19 @@ export function defaultAdjust(): Adjust {
     hsl: { hue: Array<number>(8).fill(0), sat: Array<number>(8).fill(0), lum: Array<number>(8).fill(0) },
     curves: { master: identityCurve(), r: identityCurve(), g: identityCurve(), b: identityCurve() },
     noise_reduction: 0,
+    blur: 0,
     sharpen: { amount: 0, radius: 1, threshold: 0 },
     vignette: { amount: 0, midpoint: 50, feather: 50 },
     grain: { amount: 0, size: 1, seed: 1 },
   }
+}
+
+/**
+ * States saved by older versions (history, projects) lack fields added later (blur, layers...). Fill them with
+ * their defaults wherever a state enters the app, so every panel can rely on them.
+ */
+export function withDefaults(state: EditState): EditState {
+  return { ...state, adjust: { ...defaultAdjust(), ...state.adjust } }
 }
 
 export const emptyState = (): EditState => ({ geometry: [], adjust: defaultAdjust() })
@@ -202,12 +224,13 @@ export const isEmptyState = (s: EditState): boolean =>
   isIdentityAdjust(s.adjust) &&
   !s.pixelart &&
   !(s.layers?.length ?? 0) &&
-  !(s.local?.length ?? 0)
+  !(s.local?.length ?? 0) &&
+  !(s.clone?.length ?? 0)
 
 export const hasPointAdjustments = (a: Adjust): boolean => {
   const base = defaultAdjust()
   return !adjustEquals(
-    { ...a, noise_reduction: 0, sharpen: base.sharpen, vignette: base.vignette, grain: base.grain },
+    { ...a, noise_reduction: 0, blur: 0, sharpen: base.sharpen, vignette: base.vignette, grain: base.grain },
     base,
   )
 }

@@ -52,6 +52,14 @@ export const TOOLS: Tool[] = [
     description: 'Paint light and colour onto part of the picture: dodge, burn, brighten eyes, whiten teeth.',
   },
   {
+    id: 'clone',
+    label: 'Clone',
+    icon: 'clone',
+    shortcut: 'S',
+    ready: true,
+    description: 'Copy one part of the picture onto another: remove blemishes, extend textures.',
+  },
+  {
     id: 'background',
     label: 'Retouch',
     icon: 'background',

@@ -91,12 +91,10 @@ export function BrushPanel() {
           disabled={!target}
           onClick={() => {
             const state = committedState()
-            useEdit
-              .getState()
-              .commit('Clear brush', {
-                ...state,
-                local: (state.local ?? []).filter((l) => l.id !== brush.target),
-              })
+            useEdit.getState().commit('Clear brush', {
+              ...state,
+              local: (state.local ?? []).filter((l) => l.id !== brush.target),
+            })
             brush.set({ target: null })
           }}
         >

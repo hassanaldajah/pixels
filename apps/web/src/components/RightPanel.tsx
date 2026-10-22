@@ -5,6 +5,7 @@ import { useImage } from '../state/image'
 import { useUi } from '../state/ui'
 import { AdjustPanel } from './AdjustPanel'
 import { BrushPanel } from './BrushPanel'
+import { ClonePanel } from './ClonePanel'
 import { EraserPanel } from './EraserPanel'
 import { HistoryPanel } from './HistoryPanel'
 import { LayersPanel } from './LayersPanel'
@@ -123,6 +124,7 @@ export function RightPanel() {
           {image && tool === 'adjust' && <AdjustPanel />}
           {image && tool === 'eraser' && <EraserPanel />}
           {image && tool === 'brush' && <BrushPanel />}
+          {image && tool === 'clone' && <ClonePanel />}
           {image && tool === 'background' && <RetouchPanel />}
           {image && tool === 'upscale' && <UpscalePanel />}
           {image && tool === 'pixelart' && <PixelArtPanel />}

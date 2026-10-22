@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from pipeline import adjust, geometry, layers, paint, pixelart, selection
+from pipeline import adjust, clone, geometry, layers, paint, pixelart, selection
 from pipeline.layers import LayerLoader
 from pipeline.ops import EditState
 
@@ -26,6 +26,7 @@ def load_rgba(path: Path) -> Array:
 def render_base(source: Array, state: EditState, max_pixels: int = DEFAULT_MAX_PIXELS) -> Array:
     """Geometry and adjustments only (everything except the pixel-art effect)."""
     image = geometry.apply(source, state.geometry, max_pixels) if state.geometry else source
+    image = clone.apply(image, state.clone)
     adjusted = adjust.apply(image, state.adjust, scale=1.0)
     if state.selection is not None and not state.adjust.is_identity():
         adjusted = selection.apply_inside(image, adjusted, state.selection)

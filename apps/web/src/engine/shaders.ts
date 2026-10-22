@@ -181,10 +181,10 @@ uniform float u_sigma;
 
 void main() {
   ivec2 c = ivec2(gl_FragCoord.xy);
-  int radius = min(24, max(1, int(ceil(3.0 * u_sigma))));
+  int radius = min(96, max(1, int(ceil(3.0 * u_sigma))));
   float sum = 0.0;
   vec4 acc = vec4(0.0);
-  for (int i = -24; i <= 24; i++) {
+  for (int i = -96; i <= 96; i++) {
     if (i < -radius || i > radius) continue;
     float w = exp(-float(i * i) / (2.0 * u_sigma * u_sigma));
     sum += w;
@@ -269,6 +269,8 @@ export const MIX_FRAG = `${HEADER}
 uniform sampler2D u_before;
 uniform sampler2D u_after;
 uniform sampler2D u_paint;     // painted mask (R8), when u_maskKind is 3
+uniform int u_useShift;        // clone stamp: take the copy from a shifted place (bilinear)
+uniform vec2 u_shift;          // preview pixels
 uniform int u_maskKind;        // 1 linear, 2 radial, 3 painted
 uniform vec4 u_mask;           // x0, y0, x1, y1 in full-resolution canvas pixels
 uniform int u_maskInvert;
@@ -284,7 +286,19 @@ void main() {
       ? clamp(dot(g - u_mask.xy, d) / dot(d, d), 0.0, 1.0)
       : 1.0 - clamp(length(g - u_mask.xy) / length(d), 0.0, 1.0);
   if (u_maskInvert == 1) v = 1.0 - v;
-  outColor = mix(texelFetch(u_before, ip, 0), texelFetch(u_after, ip, 0), v);
+  vec4 copy;
+  if (u_useShift == 1) {
+    ivec2 sz = textureSize(u_after, 0);
+    vec2 q = gl_FragCoord.xy + u_shift - 0.5;
+    vec2 fl = floor(q);
+    vec2 t = q - fl;
+    ivec2 i0 = ivec2(fl);
+    copy = mix(
+      mix(texelFetch(u_after, clamp(i0, ivec2(0), sz - 1), 0), texelFetch(u_after, clamp(i0 + ivec2(1, 0), ivec2(0), sz - 1), 0), t.x),
+      mix(texelFetch(u_after, clamp(i0 + ivec2(0, 1), ivec2(0), sz - 1), 0), texelFetch(u_after, clamp(i0 + ivec2(1, 1), ivec2(0), sz - 1), 0), t.x),
+      t.y);
+  } else copy = texelFetch(u_after, ip, 0);
+  outColor = mix(texelFetch(u_before, ip, 0), copy, v);
 }`
 
 /**

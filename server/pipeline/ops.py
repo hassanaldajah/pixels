@@ -313,6 +313,39 @@ class Layer(_Model):
 
 
 MAX_LOCAL = 8
+MAX_STROKES = 300
+MAX_DABS = 40_000
+
+
+class Stroke(_Model):
+    """One brush stroke: round soft dabs at `pts` (canvas pixels). `erase` rubs paint out instead of adding it."""
+
+    r: float = Field(ge=1, le=4000)  # radius, pixels
+    hardness: float = Field(default=0.5, ge=0, le=1)
+    flow: float = Field(default=0.5, ge=0.01, le=1)
+    erase: bool = False
+    pts: list[list[float]] = Field(min_length=1, max_length=4000)
+
+    @field_validator("pts")
+    @classmethod
+    def _points(cls, value: list[list[float]]) -> list[list[float]]:
+        for point in value:
+            if len(point) != 2 or any(abs(c) > 1e6 for c in point):
+                raise ValueError("each dab must be [x, y]")
+        return value
+
+
+class Paint(_Model):
+    """Brush strokes that make up a painted mask."""
+
+    strokes: list[Stroke] = Field(default_factory=list, max_length=MAX_STROKES)
+
+    @field_validator("strokes")
+    @classmethod
+    def _total(cls, value: list[Stroke]) -> list[Stroke]:
+        if sum(len(s.pts) for s in value) > MAX_DABS:
+            raise ValueError(f"a brush can hold at most {MAX_DABS} dabs")
+        return value
 
 
 class LocalAdjust(_Model):
@@ -321,7 +354,8 @@ class LocalAdjust(_Model):
     id: str
     name: str = Field(default="Local adjustment", max_length=64)
     visible: bool = True
-    mask: LayerMask
+    mask: LayerMask | None = None  # a gradient...
+    paint: Paint | None = None  # ...or brush strokes (exactly one of the two)
     adjust: Adjust = Field(default_factory=Adjust)
 
     @field_validator("id")
@@ -330,6 +364,12 @@ class LocalAdjust(_Model):
         if not LAYER_ID.fullmatch(value):
             raise ValueError("an id is 6 to 32 lowercase letters and digits")
         return value
+
+    @model_validator(mode="after")
+    def _one_area(self) -> LocalAdjust:
+        if (self.mask is None) == (self.paint is None):
+            raise ValueError("a local adjustment needs either a gradient mask or brush strokes")
+        return self
 
 
 class EditState(_Model):

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useImage } from '../state/image'
 import { useUi } from '../state/ui'
 import { AdjustPanel } from './AdjustPanel'
+import { BrushPanel } from './BrushPanel'
 import { EraserPanel } from './EraserPanel'
 import { HistoryPanel } from './HistoryPanel'
 import { LayersPanel } from './LayersPanel'
@@ -121,6 +122,7 @@ export function RightPanel() {
           {image && tool === 'transform' && <TransformPanel />}
           {image && tool === 'adjust' && <AdjustPanel />}
           {image && tool === 'eraser' && <EraserPanel />}
+          {image && tool === 'brush' && <BrushPanel />}
           {image && tool === 'background' && <RetouchPanel />}
           {image && tool === 'upscale' && <UpscalePanel />}
           {image && tool === 'pixelart' && <PixelArtPanel />}

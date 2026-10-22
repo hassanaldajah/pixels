@@ -487,6 +487,103 @@ cases.push(
     2,
   ],
   [
+    'brush: dodge strokes with an erased hole',
+    {
+      geometry: [],
+      adjust: adjust(),
+      local: [
+        {
+          id: 'brush001',
+          name: 'Dodge',
+          visible: true,
+          paint: {
+            strokes: [
+              {
+                r: 34,
+                hardness: 0.3,
+                flow: 0.5,
+                erase: false,
+                pts: [
+                  [60, 70],
+                  [78, 74],
+                  [96, 78],
+                  [114, 80],
+                  [132, 84],
+                ],
+              },
+              {
+                r: 22,
+                hardness: 0.8,
+                flow: 0.9,
+                erase: false,
+                pts: [
+                  [170, 120],
+                  [176, 126],
+                ],
+              },
+              { r: 10, hardness: 0.5, flow: 1, erase: true, pts: [[96, 78]] },
+            ],
+          },
+          adjust: adjust({ exposure: 0.8, contrast: 15 }),
+        },
+      ],
+    },
+    layered,
+    2,
+  ],
+  [
+    'brush: two painted areas after a crop',
+    {
+      geometry: [{ type: 'crop', x: 20, y: 10, w: 200, h: 160 }],
+      adjust: adjust({ saturation: 10 }),
+      local: [
+        {
+          id: 'teeth01',
+          name: 'Teeth',
+          visible: true,
+          paint: {
+            strokes: [
+              {
+                r: 18,
+                hardness: 0.6,
+                flow: 0.7,
+                erase: false,
+                pts: [
+                  [60, 50],
+                  [70, 52],
+                  [80, 54],
+                ],
+              },
+            ],
+          },
+          adjust: adjust({ saturation: -55, exposure: 0.3 }),
+        },
+        {
+          id: 'burn001',
+          name: 'Burn',
+          visible: true,
+          paint: {
+            strokes: [
+              {
+                r: 40,
+                hardness: 0.1,
+                flow: 0.4,
+                erase: false,
+                pts: [
+                  [150, 110],
+                  [165, 120],
+                ],
+              },
+            ],
+          },
+          adjust: adjust({ exposure: -0.7 }),
+        },
+      ],
+    },
+    layered,
+    2,
+  ],
+  [
     'layer: linear fade',
     {
       geometry: [],

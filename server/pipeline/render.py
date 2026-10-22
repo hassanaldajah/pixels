@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from pipeline import adjust, geometry, layers, pixelart, selection
+from pipeline import adjust, geometry, layers, paint, pixelart, selection
 from pipeline.layers import LayerLoader
 from pipeline.ops import EditState
 
@@ -33,7 +33,12 @@ def render_base(source: Array, state: EditState, max_pixels: int = DEFAULT_MAX_P
         if not local.visible or local.adjust.is_identity():
             continue
         tweaked = adjust.apply(adjusted, local.adjust, scale=1.0)
-        weight = layers.mask_values(local.mask, adjusted.shape[1], adjusted.shape[0])
+        h, w = adjusted.shape[:2]
+        weight = (
+            layers.mask_values(local.mask, w, h)
+            if local.mask is not None
+            else paint.mask(local.paint, w, h)  # type: ignore[arg-type]
+        )
         adjusted = np.asarray(adjusted + (tweaked - adjusted) * weight, dtype=np.float32)
     return adjusted
 

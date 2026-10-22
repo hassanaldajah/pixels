@@ -44,6 +44,14 @@ export const TOOLS: Tool[] = [
     description: 'Paint over anything to remove it: the gap is filled from the surrounding texture.',
   },
   {
+    id: 'brush',
+    label: 'Brush',
+    icon: 'brush',
+    shortcut: 'D',
+    ready: true,
+    description: 'Paint light and colour onto part of the picture: dodge, burn, brighten eyes, whiten teeth.',
+  },
+  {
     id: 'background',
     label: 'Retouch',
     icon: 'background',

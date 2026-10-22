@@ -139,16 +139,22 @@ export function LocalPanel() {
       {current && (
         <>
           <Group title="Where">
-            <MaskControls
-              mask={current.mask}
-              width={image.width}
-              height={image.height}
-              onChange={(patch, commit) => {
-                const next = edit(current.id, (l) => ({ ...l, mask: { ...l.mask, ...patch } }))
-                if (commit) write('Local adjustment area', next)
-                else previewList(next)
-              }}
-            />
+            {!current.mask && <p className="hint">Painted with the Brush tool.</p>}
+            {current.mask && (
+              <MaskControls
+                mask={current.mask}
+                width={image.width}
+                height={image.height}
+                onChange={(patch, commit) => {
+                  const next = edit(current.id, (l) => ({
+                    ...l,
+                    mask: { ...(l.mask as LayerMask), ...patch },
+                  }))
+                  if (commit) write('Local adjustment area', next)
+                  else previewList(next)
+                }}
+              />
+            )}
           </Group>
           <Group title="What">
             {ROWS.map((r) => (

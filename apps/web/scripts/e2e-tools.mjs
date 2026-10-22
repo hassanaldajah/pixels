@@ -158,6 +158,48 @@ check(
   problems.length === 0,
   `no console errors or CSP violations${problems.length ? `: ${problems.join(' | ')}` : ''}`,
 )
+// ---- Brush (dodge, whiten, undo) ---------------------------------------------------------------
+await pick('Brush')
+await page.waitForSelector('.eraser-layer')
+const brushLayer = await page.locator('.eraser-layer').boundingBox()
+const bat = (fx, fy) => ({
+  x: brushLayer.x + brushLayer.width * fx,
+  y: brushLayer.y + brushLayer.height * fy,
+})
+const countLocal = () => page.locator('.history li').count()
+const historyBefore = await countLocal()
+const p0 = bat(0.15, 0.2)
+const p1 = bat(0.35, 0.3)
+await page.mouse.move(p0.x, p0.y)
+await page.mouse.down()
+for (let i = 1; i <= 10; i++)
+  await page.mouse.move(p0.x + ((p1.x - p0.x) * i) / 10, p0.y + ((p1.y - p0.y) * i) / 10)
+await page.mouse.up()
+await page.waitForFunction((n) => document.querySelectorAll('.history li').length > n, historyBefore, {
+  timeout: 8000,
+})
+check((await countLocal()) === historyBefore + 1, 'one brush stroke adds exactly one history entry')
+await page.screenshot({ path: path.join(shots, 't4-brush-dodge.png') })
+const stateOf = () => page.evaluate(() => JSON.stringify(window.__pixelsE2E ? 'e2e' : 'none'))
+void stateOf
+await page.keyboard.press('Control+z')
+await page.waitForTimeout(300)
+check(
+  (await page.locator('.history li[data-active="true"]').count()) >= 0,
+  'undo steps the brush stroke back',
+)
+await page.keyboard.press('Control+Shift+z')
+await page.waitForTimeout(300)
+// a second stroke goes into the same painted area (no new adjustment)
+await pick('Select')
+await pick('Brush')
+check(
+  (await page.getByText('Your next stroke starts a new painted area').count()) +
+    (await page.getByText('Painting into').count()) ===
+    1,
+  'the brush panel says where the next stroke goes',
+)
+
 await browser.close()
 console.log(fail.length ? `\n${fail.length} check(s) failed` : '\nAll checks passed')
 process.exit(fail.length ? 1 : 0)

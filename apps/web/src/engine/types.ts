@@ -118,12 +118,27 @@ export interface Layer {
 
 export const MAX_LOCAL = 8
 
+export interface Stroke {
+  r: number
+  hardness: number
+  flow: number
+  erase: boolean
+  pts: [number, number][]
+}
+export interface Paint {
+  strokes: Stroke[]
+}
+export const MAX_DABS = 40_000
+
 /** Adjustments that apply only where a gradient is opaque (a graduated or radial filter). */
 export interface LocalAdjust {
   id: string
   name: string
   visible: boolean
-  mask: LayerMask
+  /** A gradient... */
+  mask?: LayerMask | null
+  /** ...or brush strokes (exactly one of the two). */
+  paint?: Paint | null
   adjust: Adjust
 }
 

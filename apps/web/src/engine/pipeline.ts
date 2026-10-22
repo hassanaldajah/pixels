@@ -4,6 +4,7 @@
  * finish. The server renders the same state with NumPy for the export (docs/PIPELINE.md).
  */
 import { curveLut } from './curves'
+import { paintKey, rasterisePaint } from '../lib/paintMask'
 import { hexToFill, invert, plan, scaleOp, type Mat3 } from './geometry'
 import {
   BLEND_FRAG,
@@ -25,6 +26,7 @@ import {
   type EditState,
   type Layer,
   type LayerMask,
+  type LocalAdjust,
   type Selection,
 } from './types'
 
@@ -111,6 +113,7 @@ export class GpuPipeline {
   private source: { texture: WebGLTexture; w: number; h: number } | null = null
   private fullSize = { w: 1, h: 1 }
   private last: RenderResult | null = null
+  private paintTextures = new Map<string, { texture: WebGLTexture; key: string }>()
   private layerTextures = new Map<
     string,
     { texture: WebGLTexture; w: number; h: number; fullW: number; fullH: number }
@@ -439,19 +442,40 @@ export class GpuPipeline {
   }
 
   /** Blend `after` over `before` where the gradient is opaque. */
-  private mixPass(before: Pooled, after: Pooled, mask: LayerMask, preview: number): Pooled {
+  private mixPass(before: Pooled, after: Pooled, local: LocalAdjust, preview: number): Pooled {
     const { gl } = this
     const out = this.acquire(before.w, before.h, 'rgba8')
     const p = this.programs.mix
+    const mask: LayerMask | null = local.mask ?? null
+    const painted = !mask && local.paint ? this.paintTexture(local, before.w, before.h, preview) : null
     this.pass(p, out, () => {
       this.bindTexture(0, before.texture, p, 'u_before')
       this.bindTexture(1, after.texture, p, 'u_after')
-      p.i('u_maskKind', mask.kind === 'linear' ? 1 : 2)
-      gl.uniform4f(p.loc('u_mask'), mask.x0, mask.y0, mask.x1, mask.y1)
-      p.i('u_maskInvert', mask.invert ? 1 : 0)
+      this.bindTexture(2, painted ?? after.texture, p, 'u_paint')
+      p.i('u_maskKind', painted ? 3 : mask?.kind === 'linear' ? 1 : 2)
+      gl.uniform4f(p.loc('u_mask'), mask?.x0 ?? 0, mask?.y0 ?? 0, mask?.x1 ?? 1, mask?.y1 ?? 1)
+      p.i('u_maskInvert', mask?.invert ? 1 : 0)
       p.f('u_preview', preview)
     })
     return out
+  }
+
+  /** The brush strokes of a painted adjustment as an R8 texture at preview size (cached until the strokes change). */
+  private paintTexture(local: LocalAdjust, w: number, h: number, preview: number): WebGLTexture {
+    const { gl } = this
+    const key = paintKey(local.paint as NonNullable<LocalAdjust['paint']>, w, h)
+    const cached = this.paintTextures.get(local.id)
+    if (cached?.key === key) return cached.texture
+    const data = rasterisePaint(local.paint as NonNullable<LocalAdjust['paint']>, w, h, preview)
+    const texture = cached?.texture ?? gl.createTexture()
+    if (!texture) throw new Error('Could not create a texture')
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, w, h, 0, gl.RED, gl.UNSIGNED_BYTE, data)
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
+    this.setNearest(texture)
+    this.paintTextures.set(local.id, { texture, key })
+    return texture
   }
 
   /** Keep the adjusted picture inside the selection and the original outside it. */
@@ -531,7 +555,7 @@ export class GpuPipeline {
       if (!local.visible) continue
       const tweaked = this.adjustChain(adjusted, local.adjust, f)
       if (tweaked === adjusted) continue
-      const mixed = this.mixPass(adjusted, tweaked, local.mask, f)
+      const mixed = this.mixPass(adjusted, tweaked, local, f)
       if (adjusted !== geometryPooled) adjusted.busy = false
       tweaked.busy = false
       adjusted = mixed
@@ -614,6 +638,8 @@ export class GpuPipeline {
     for (const p of this.pool) gl.deleteTexture(p.texture)
     this.pool = []
     for (const t of this.layerTextures.values()) gl.deleteTexture(t.texture)
+    for (const t of this.paintTextures.values()) gl.deleteTexture(t.texture)
+    this.paintTextures.clear()
     this.layerTextures.clear()
     if (this.source) gl.deleteTexture(this.source.texture)
     gl.deleteTexture(this.lutTexture)

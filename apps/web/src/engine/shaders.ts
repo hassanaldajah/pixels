@@ -268,7 +268,8 @@ void main() {
 export const MIX_FRAG = `${HEADER}
 uniform sampler2D u_before;
 uniform sampler2D u_after;
-uniform int u_maskKind;        // 1 linear, 2 radial
+uniform sampler2D u_paint;     // painted mask (R8), when u_maskKind is 3
+uniform int u_maskKind;        // 1 linear, 2 radial, 3 painted
 uniform vec4 u_mask;           // x0, y0, x1, y1 in full-resolution canvas pixels
 uniform int u_maskInvert;
 uniform float u_preview;       // preview scale (preview px per full px)
@@ -277,9 +278,11 @@ void main() {
   ivec2 ip = ivec2(gl_FragCoord.xy);
   vec2 g = gl_FragCoord.xy / u_preview;
   vec2 d = u_mask.zw - u_mask.xy;
-  float v = u_maskKind == 1
-    ? clamp(dot(g - u_mask.xy, d) / dot(d, d), 0.0, 1.0)
-    : 1.0 - clamp(length(g - u_mask.xy) / length(d), 0.0, 1.0);
+  float v = u_maskKind == 3
+    ? texelFetch(u_paint, ip, 0).r
+    : u_maskKind == 1
+      ? clamp(dot(g - u_mask.xy, d) / dot(d, d), 0.0, 1.0)
+      : 1.0 - clamp(length(g - u_mask.xy) / length(d), 0.0, 1.0);
   if (u_maskInvert == 1) v = 1.0 - v;
   outColor = mix(texelFetch(u_before, ip, 0), texelFetch(u_after, ip, 0), v);
 }`

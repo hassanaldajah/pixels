@@ -241,6 +241,30 @@ const xAfter = await page
   .inputValue()
 check(xBefore !== xAfter, `dragging with the Move tool moves the layer (X ${xBefore} -> ${xAfter})`)
 
+// ---- Lasso: draw a shape, it becomes the selection ----------------------------------------------
+await pick('Lasso')
+await page.waitForSelector('.lasso-layer')
+const lb = await page.locator('.lasso-layer').boundingBox()
+const around = [
+  [0.3, 0.3],
+  [0.7, 0.3],
+  [0.75, 0.6],
+  [0.5, 0.75],
+  [0.28, 0.6],
+  [0.3, 0.3],
+]
+await page.mouse.move(lb.x + lb.width * around[0][0], lb.y + lb.height * around[0][1])
+await page.mouse.down()
+for (const [fx, fy] of around.slice(1))
+  await page.mouse.move(lb.x + lb.width * fx, lb.y + lb.height * fy, { steps: 6 })
+await page.mouse.up()
+await page.waitForTimeout(400)
+await page.locator('.section-head', { hasText: 'Selection' }).first().click()
+check(
+  (await page.getByText(/Free shape \(\d+ points\)/).count()) >= 1,
+  'drawing with the Lasso creates a free-shape selection',
+)
+
 // ---- User guide (F1) ------------------------------------------------------------------------
 await page.keyboard.press('F1')
 await page.waitForSelector('[role="dialog"][aria-label="User guide"]')

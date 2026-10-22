@@ -2208,3 +2208,17 @@ kbd,
   border-top: 1px solid var(--px-border, rgba(255, 255, 255, 0.08));
   margin: 4px 0;
 }
+
+.lasso-path {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.lasso-path path {
+  fill: rgba(79, 182, 255, 0.12);
+  stroke: var(--px-accent, #4fb6ff);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+}

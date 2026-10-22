@@ -9,6 +9,7 @@ import { guideTargets, imageToScreen, screenToImage, snapGuide, zoomAt, type Poi
 import { GlViewport } from './renderer'
 import { useEngine } from './useEngine'
 import { BrushOverlay } from './BrushOverlay'
+import { LassoOverlay } from './LassoOverlay'
 import { MoveOverlay } from './MoveOverlay'
 import { CloneOverlay } from './CloneOverlay'
 import { EraserOverlay } from './EraserOverlay'
@@ -358,6 +359,7 @@ export function Viewport({ onGlError }: { onGlError: (message: string) => void }
       {hasImage && <EraserOverlay />}
       {hasImage && <BrushOverlay />}
       {hasImage && <MoveOverlay />}
+      {hasImage && <LassoOverlay />}
       {hasImage && <CloneOverlay />}
       {hasImage && <Rulers onStartGuide={startGuide} />}
       {hasImage && <TransformOverlay />}

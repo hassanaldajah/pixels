@@ -125,6 +125,17 @@ export function RightPanel() {
           {image && tool === 'adjust' && <AdjustPanel />}
           {image && tool === 'eraser' && <EraserPanel />}
           {image && tool === 'brush' && <BrushPanel />}
+          {image && tool === 'lasso' && (
+            <div className="tool-panel">
+              <div className="tool-panel-head">
+                <h4>Lasso</h4>
+              </div>
+              <p className="hint">
+                Drag around the area you want to edit; let go and the shape closes. Adjust edits then apply
+                only inside it. Set the soft edge and Invert under Selection. Esc cancels a shape in progress.
+              </p>
+            </div>
+          )}
           {image && tool === 'move' && (
             <div className="tool-panel">
               <div className="tool-panel-head">

@@ -28,6 +28,14 @@ export const TOOLS: Tool[] = [
     description: 'Drag the selected layer on the picture. Arrow keys nudge it.',
   },
   {
+    id: 'lasso',
+    label: 'Lasso',
+    icon: 'lasso',
+    shortcut: 'L',
+    ready: true,
+    description: 'Draw around an area: the Adjust edits then apply only inside it.',
+  },
+  {
     id: 'transform',
     label: 'Transform',
     icon: 'transform',

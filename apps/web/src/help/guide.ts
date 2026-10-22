@@ -252,6 +252,7 @@ export const GUIDE: GuideSection[] = [
           'Feather softens the edge so the change fades in gradually.',
           'Invert applies the edit to everything except the area.',
           'Choose "None" to go back to the whole picture.',
+          'For a free shape, use the Lasso tool (L): drag around the area and let go. The shape closes and becomes the selection.',
         ],
       },
     ],
@@ -350,8 +351,8 @@ export const GUIDE: GuideSection[] = [
           ['F1', 'This guide'],
           ['?', 'All keyboard shortcuts'],
           [
-            'V  M  C  A  E  D  S  B  P  U  R',
-            'Select, Move, Transform, Adjust, Eraser, Brush, Clone, Retouch, Pixel Art, Upscale, Presets',
+            'V  M  L  C  A  E  D  S  B  P  U  R',
+            'Select, Move, Lasso, Transform, Adjust, Eraser, Brush, Clone, Retouch, Pixel Art, Upscale, Presets',
           ],
           ['\\ (hold)', 'Show the original'],
           ['Space + drag', 'Move around the picture'],

@@ -31,6 +31,21 @@ sha256sum -c pixels_0.1.1_amd64.AppImage.sha256
 The Windows installer is not signed (there is no paid certificate), so SmartScreen asks for confirmation the first
 time. The app is free, works offline and sends nothing anywhere.
 
+## Security
+
+Every image is checked before it is shown: file type and signature, hidden or appended data, malware rules (YARA, plus
+ClamAV when you run it), decoding in a resource-limited process, and a fresh clean PNG is written. A statistical screen
+also looks for data hidden in the pixels. Nothing leaves your computer. Details and honest limits:
+[Security Gate](docs/SECURITY_GATE.md) and [Security audit](docs/SECURITY_AUDIT.md).
+
+The v0.2.0 Windows installer was scanned on [VirusTotal](https://www.virustotal.com/gui/file/029c6df20a7d0769f9e9973f81763d423207e1c6265655b03baecf0fd7f23609):
+no vendor flagged it (0 of 69 engines on 22 October 2026).
+
+![VirusTotal result for pixels_0.2.0_x64-setup.exe: 0 of 69](docs/assets/virustotal-v0.2.0.png)
+
+A clean scan is a snapshot, not a guarantee. The installer is not code-signed yet, so Windows may show a SmartScreen
+notice; check the `.sha256` file next to the download instead.
+
 ## What works today
 
 - **Security Gate**: every file is size-capped, type-checked by its real bytes, scanned for

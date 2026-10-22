@@ -171,11 +171,36 @@ if sys.platform == "win32":
                 _k32.TerminateJobObject(job, 1)
             _k32.CloseHandle(job)
 
+    FIREWALL_RULE = "Pixels decoder: no network"
+
+    def firewall_blocks(executables: list[str], netsh_output: str) -> bool:
+        """True when the rule's listing names this program. A venv's python.exe starts the base one, so both count."""
+        shown = netsh_output.lower()
+        return FIREWALL_RULE.lower() in shown and all(e.lower() in shown for e in executables)
+
+    def _firewall_rule_active() -> bool:
+        try:
+            shown = subprocess.run(
+                ["netsh", "advfirewall", "firewall", "show", "rule", f"name={FIREWALL_RULE}", "verbose"],
+                capture_output=True, text=True, timeout=10, creationflags=_CREATE_NO_WINDOW,
+            )  # fmt: skip
+        except (OSError, subprocess.SubprocessError):
+            return False
+        return shown.returncode == 0 and firewall_blocks(
+            sorted({sys.executable, getattr(sys, "_base_executable", sys.executable)}), shown.stdout
+        )
+
     def capabilities() -> SandboxCapabilities:
-        return SandboxCapabilities(
-            "windows-job-object", True, True, True, False,
-            ["Network access is blocked inside the worker, but not by the operating system."],
-        )  # fmt: skip
+        isolated = _firewall_rule_active()
+        notes = (
+            ["Windows Firewall blocks this program's network access (rule: " + FIREWALL_RULE + ")."]
+            if isolated
+            else [
+                "Network access is blocked inside the worker, but not by the operating system. "
+                "Run scripts/windows-block-network.ps1 as administrator to add a firewall rule."
+            ]
+        )
+        return SandboxCapabilities("windows-job-object", True, True, True, isolated, notes)
 
 else:
     import resource

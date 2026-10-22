@@ -60,10 +60,25 @@ function Section({
 
 const megapixels = (w: number, h: number) => `${((w * h) / 1e6).toFixed(w * h >= 1e7 ? 0 : 2)} MP`
 
+interface StegoInfo {
+  checked: boolean
+  suspicious: boolean
+  findings: string[]
+  scrubbed: boolean
+}
+
+const asStego = (value: unknown): StegoInfo | null =>
+  value && typeof value === 'object' && 'suspicious' in value ? (value as StegoInfo) : null
+const asHash = (value: unknown): string | null =>
+  typeof value === 'string' && /^[0-9a-f]{64}$/.test(value) ? value : null
+
 function Properties() {
   const image = useImage((s) => s.current)
   if (!image) return <p className="muted">Open an image to see its properties.</p>
   const meta = image.report.meta
+  const gateMeta = image.report.gate.meta
+  const stego = asStego(gateMeta.stego)
+  const sha = asHash(gateMeta.sha256_original)
   return (
     <dl className="facts">
       <dt>Name</dt>
@@ -85,6 +100,38 @@ function Properties() {
       <dd>8-bit sRGB PNG</dd>
       <dt>Metadata</dt>
       <dd>{meta.metadata_removed.length ? `Removed: ${meta.metadata_removed.join(', ')}` : 'None found'}</dd>
+      {stego && (
+        <>
+          <dt>Hidden data</dt>
+          <dd title={stego.findings.join(' ')}>
+            {!stego.checked
+              ? 'Not checked'
+              : stego.suspicious
+                ? stego.scrubbed
+                  ? 'Looked suspicious, low bits cleaned'
+                  : 'Looks suspicious'
+                : stego.scrubbed
+                  ? 'None found, low bits cleaned'
+                  : 'None found'}
+          </dd>
+        </>
+      )}
+      {sha && (
+        <>
+          <dt>SHA-256</dt>
+          <dd title={sha}>
+            {sha.slice(0, 12)}…{' '}
+            <a
+              href={`https://www.virustotal.com/gui/file/${sha}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Looks the hash up on VirusTotal. The picture is not uploaded."
+            >
+              VirusTotal
+            </a>
+          </dd>
+        </>
+      )}
     </dl>
   )
 }

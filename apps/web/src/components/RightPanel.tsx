@@ -7,6 +7,7 @@ import { AdjustPanel } from './AdjustPanel'
 import { EraserPanel } from './EraserPanel'
 import { HistoryPanel } from './HistoryPanel'
 import { LayersPanel } from './LayersPanel'
+import { SelectionPanel } from './SelectionPanel'
 import { Histogram } from './Histogram'
 import { PixelArtPanel } from './PixelArtPanel'
 import { PresetsPanel } from './PresetsPanel'
@@ -144,6 +145,9 @@ export function RightPanel() {
             ) : (
               <p className="muted">Every file is checked on the backend before it is shown.</p>
             )}
+          </Section>
+          <Section title="Selection" defaultOpen={false}>
+            <SelectionPanel />
           </Section>
           <Section title="Layers" defaultOpen={false}>
             <LayersPanel />

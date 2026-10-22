@@ -90,6 +90,18 @@ export interface LayerMask {
   invert: boolean
 }
 
+export interface Selection {
+  kind: 'rect' | 'ellipse' | 'polygon'
+  x: number
+  y: number
+  w: number
+  h: number
+  points: [number, number][]
+  feather: number
+  invert: boolean
+}
+export const MAX_SELECTION_POINTS = 128
+
 /** A picture placed above the edited image (bottom to top). `image_id` is a Security-Gate-approved working copy. */
 export interface Layer {
   id: string
@@ -108,6 +120,7 @@ export interface EditState {
   geometry: GeoOp[]
   adjust: Adjust
   pixelart?: PixelArt | null
+  selection?: Selection | null
   layers?: Layer[]
 }
 

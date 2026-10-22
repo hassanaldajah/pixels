@@ -7,6 +7,7 @@ import { curveLut } from './curves'
 import { hexToFill, invert, plan, scaleOp, type Mat3 } from './geometry'
 import {
   BLEND_FRAG,
+  SELECT_FRAG,
   BLUR_FRAG,
   FINISH_FRAG,
   FULLSCREEN_VERT,
@@ -22,6 +23,7 @@ import {
   type Adjust,
   type EditState,
   type Layer,
+  type Selection,
 } from './types'
 
 export interface RenderResult {
@@ -96,7 +98,10 @@ class Program {
 }
 
 export class GpuPipeline {
-  private readonly programs: Record<'geometry' | 'point' | 'blur' | 'noise' | 'finish' | 'blend', Program>
+  private readonly programs: Record<
+    'geometry' | 'point' | 'blur' | 'noise' | 'finish' | 'blend' | 'select',
+    Program
+  >
   private readonly framebuffer: WebGLFramebuffer
   private readonly vao: WebGLVertexArrayObject
   private readonly lutTexture: WebGLTexture
@@ -119,6 +124,7 @@ export class GpuPipeline {
       noise: new Program(gl, NOISE_FRAG),
       finish: new Program(gl, FINISH_FRAG),
       blend: new Program(gl, BLEND_FRAG),
+      select: new Program(gl, SELECT_FRAG),
     }
     const fb = gl.createFramebuffer()
     const vao = gl.createVertexArray()
@@ -403,6 +409,30 @@ export class GpuPipeline {
     return out
   }
 
+  /** Keep the adjusted picture inside the selection and the original outside it. */
+  private selectPass(before: Pooled, after: Pooled, sel: Selection, preview: number): Pooled {
+    const { gl } = this
+    const out = this.acquire(after.w, after.h, 'rgba8')
+    const p = this.programs.select
+    const pts = new Float32Array(256)
+    sel.points.slice(0, 128).forEach(([x, y], i) => {
+      pts[i * 2] = x
+      pts[i * 2 + 1] = y
+    })
+    this.pass(p, out, () => {
+      this.bindTexture(0, before.texture, p, 'u_before')
+      this.bindTexture(1, after.texture, p, 'u_after')
+      p.i('u_kind', sel.kind === 'rect' ? 0 : sel.kind === 'ellipse' ? 1 : 2)
+      gl.uniform4f(p.loc('u_rect'), sel.x, sel.y, Math.max(sel.w, 1e-6), Math.max(sel.h, 1e-6))
+      gl.uniform2fv(p.loc('u_pts'), pts)
+      p.i('u_n', Math.min(sel.points.length, 128))
+      p.f('u_feather', sel.feather)
+      p.i('u_invert', sel.invert ? 1 : 0)
+      p.f('u_preview', preview)
+    })
+    return out
+  }
+
   private mipmap(tex: Pooled): void {
     const { gl } = this
     gl.bindTexture(gl.TEXTURE_2D, tex.texture)
@@ -469,6 +499,11 @@ export class GpuPipeline {
         stage = quantised
       }
       adjusted = stage ?? geometryPooled
+    }
+    if (state.selection && adjusted !== geometryPooled) {
+      const masked = this.selectPass(geometryPooled, adjusted, state.selection, f)
+      adjusted.busy = false
+      adjusted = masked
     }
     for (const layer of state.layers ?? []) {
       if (!layer.visible || layer.opacity <= 0) continue

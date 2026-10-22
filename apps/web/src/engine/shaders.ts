@@ -263,6 +263,52 @@ void main() {
 }`
 
 /**
+ * Keeps the adjusted picture inside a selection and the original outside it. Mirrors server/pipeline/selection.py.
+ */
+export const SELECT_FRAG = `${HEADER}
+uniform sampler2D u_before;
+uniform sampler2D u_after;
+uniform int u_kind;            // 0 rect, 1 ellipse, 2 polygon
+uniform vec4 u_rect;           // x, y, w, h in full-resolution canvas pixels
+uniform vec2 u_pts[128];
+uniform int u_n;
+uniform float u_feather;
+uniform int u_invert;
+uniform float u_preview;       // preview scale (preview px per full px)
+
+void main() {
+  ivec2 ip = ivec2(gl_FragCoord.xy);
+  vec4 before = texelFetch(u_before, ip, 0);
+  vec4 after = texelFetch(u_after, ip, 0);
+  vec2 p = gl_FragCoord.xy / u_preview;
+  float sd;
+  if (u_kind == 2) {
+    bool inside = false;
+    float dist = 1.0e20;
+    for (int i = 0; i < 128; i++) {
+      if (i >= u_n) break;
+      vec2 a = u_pts[i];
+      vec2 b = u_pts[(i + 1) % u_n];
+      if ((a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+      vec2 e = b - a;
+      float l2 = dot(e, e);
+      float t = l2 > 0.0 ? clamp(dot(p - a, e) / l2, 0.0, 1.0) : 0.0;
+      dist = min(dist, length(p - (a + t * e)));
+    }
+    sd = inside ? -dist : dist;
+  } else {
+    vec2 c = u_rect.xy + u_rect.zw * 0.5;
+    vec2 h = u_rect.zw * 0.5;
+    sd = u_kind == 0
+      ? max(abs(p.x - c.x) - h.x, abs(p.y - c.y) - h.y)
+      : (length((p - c) / h) - 1.0) * min(h.x, h.y);
+  }
+  float v = clamp(0.5 - sd / max(u_feather, 1.0), 0.0, 1.0);
+  if (u_invert == 1) v = 1.0 - v;
+  outColor = mix(before, after, v);
+}`
+
+/**
  * One layer blended onto the picture. Mirrors server/pipeline/layers.py: the layer is placed with premultiplied
  * bilinear sampling and a one-pixel anti-aliased edge, then blended with the W3C formulas (source-over + blend mode).
  */

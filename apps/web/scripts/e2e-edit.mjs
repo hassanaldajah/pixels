@@ -399,6 +399,51 @@ cases.push(
     2,
   ],
   [
+    'selection: rectangle with feather',
+    {
+      geometry: [],
+      adjust: adjust({ exposure: 0.8, saturation: -40 }),
+      selection: { kind: 'rect', x: 40, y: 30, w: 120, h: 90, points: [], feather: 12, invert: false },
+    },
+    layered,
+    2,
+  ],
+  [
+    'selection: ellipse, inverted',
+    {
+      geometry: [],
+      adjust: adjust({ temperature: 40, contrast: 25 }),
+      selection: { kind: 'ellipse', x: 60, y: 40, w: 140, h: 100, points: [], feather: 8, invert: true },
+    },
+    layered,
+    2,
+  ],
+  [
+    'selection: polygon (lasso) with feather',
+    {
+      geometry: [],
+      adjust: adjust({ exposure: -0.6, vibrance: 50 }),
+      selection: {
+        kind: 'polygon',
+        x: 0,
+        y: 0,
+        w: 1,
+        h: 1,
+        points: [
+          [30, 20],
+          [220, 40],
+          [180, 160],
+          [90, 120],
+          [40, 170],
+        ],
+        feather: 10,
+        invert: false,
+      },
+    },
+    layered,
+    2,
+  ],
+  [
     'layer: linear fade',
     {
       geometry: [],

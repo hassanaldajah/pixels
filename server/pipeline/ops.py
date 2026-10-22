@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 Anchor = Literal["tl", "tc", "tr", "ml", "c", "mr", "bl", "bc", "br"]
@@ -223,6 +223,37 @@ class PixelArt(_Model):
         return value
 
 
+# --- selection ----------------------------------------------------------------------------
+MAX_SELECTION_POINTS = 128
+
+
+class Selection(_Model):
+    """Where the adjustments apply, on the edited canvas. Rectangle/ellipse use x, y, w, h; polygon uses points."""
+
+    kind: Literal["rect", "ellipse", "polygon"]
+    x: float = Field(default=0.0, ge=-1e6, le=1e6)
+    y: float = Field(default=0.0, ge=-1e6, le=1e6)
+    w: float = Field(default=1.0, gt=0, le=1e6)
+    h: float = Field(default=1.0, gt=0, le=1e6)
+    points: list[list[float]] = Field(default_factory=list, max_length=MAX_SELECTION_POINTS)
+    feather: float = Field(default=0.0, ge=0, le=500)  # pixels
+    invert: bool = False
+
+    @field_validator("points")
+    @classmethod
+    def _points(cls, value: list[list[float]]) -> list[list[float]]:
+        for point in value:
+            if len(point) != 2 or any(abs(c) > 1e6 for c in point):
+                raise ValueError("each point must be [x, y]")
+        return value
+
+    @model_validator(mode="after")
+    def _polygon(self) -> Selection:
+        if self.kind == "polygon" and len(self.points) < 3:
+            raise ValueError("a polygon needs at least 3 points")
+        return self
+
+
 # --- layers ----------------------------------------------------------------------------------
 BlendMode = Literal[
     "normal", "multiply", "screen", "overlay", "darken", "lighten", "difference", "soft-light"
@@ -285,6 +316,7 @@ class EditState(_Model):
     geometry: list[GeoOp] = Field(default_factory=list, max_length=MAX_GEOMETRY_OPS)
     adjust: Adjust = Field(default_factory=Adjust)
     pixelart: PixelArt | None = None
+    selection: Selection | None = None  # limits the adjustments to this area
     # Bottom to top: layers[0] sits just above the edited picture.
     layers: list[Layer] = Field(default_factory=list, max_length=MAX_LAYERS)
 

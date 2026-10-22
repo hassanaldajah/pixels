@@ -81,6 +81,15 @@ export const BLEND_MODES: BlendMode[] = [
 ]
 export const MAX_LAYERS = 16
 
+export interface LayerMask {
+  kind: 'linear' | 'radial'
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+  invert: boolean
+}
+
 /** A picture placed above the edited image (bottom to top). `image_id` is a Security-Gate-approved working copy. */
 export interface Layer {
   id: string
@@ -92,6 +101,7 @@ export interface Layer {
   x: number
   y: number
   scale: number
+  mask?: LayerMask | null
 }
 
 export interface EditState {

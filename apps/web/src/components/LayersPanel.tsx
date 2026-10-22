@@ -1,10 +1,22 @@
 import { useRef } from 'react'
-import { BLEND_MODES, MAX_LAYERS, type BlendMode } from '../engine/types'
+import { BLEND_MODES, MAX_LAYERS, type BlendMode, type Layer, type LayerMask } from '../engine/types'
 import { useDisplayedState } from '../state/edit'
 import { useImage } from '../state/image'
 import { commitLayer, moveLayer, previewLayer, removeLayer, useLayerPictures } from '../state/layers'
-import { Group, Slider } from './controls'
+import { Check, Group, Slider } from './controls'
 import { Icon } from './Icon'
+
+type MaskKind = 'none' | LayerMask['kind']
+
+/** Start points for a new mask, in canvas pixels: across the layer (linear) or from its centre (radial). */
+function defaultMask(kind: LayerMask['kind'], layer: Layer, w: number, h: number): LayerMask {
+  const lw = w * layer.scale
+  const lh = h * layer.scale
+  const cy = layer.y + lh / 2
+  return kind === 'linear'
+    ? { kind, x0: layer.x, y0: cy, x1: layer.x + lw, y1: cy, invert: false }
+    : { kind, x0: layer.x + lw / 2, y0: cy, x1: layer.x + lw, y1: cy, invert: false }
+}
 
 const BLEND_LABEL: Record<BlendMode, string> = {
   normal: 'Normal',
@@ -24,6 +36,7 @@ export function LayersPanel() {
   const { selected, select, add, error, clearError } = useLayerPictures()
   const input = useRef<HTMLInputElement>(null)
   const current = layers.find((l) => l.id === selected) ?? null
+  const picture = useLayerPictures((s) => (current ? s.pictures[current.image_id] : undefined))
   if (!image) return <p className="muted">Open an image to add layers.</p>
   const top = [...layers].reverse() // the top layer is listed first
 
@@ -171,8 +184,81 @@ export function LayersPanel() {
             onPreview={(v) => previewLayer(current.id, { y: Math.round(v) })}
             onCommit={(v) => commitLayer('Move layer', current.id, { y: Math.round(v) })}
           />
+          <label className="field">
+            <span>Fade</span>
+            <span className="select-wrap">
+              <select
+                value={current.mask?.kind ?? 'none'}
+                onChange={(e) => {
+                  const kind = e.target.value as MaskKind
+                  commitLayer(
+                    'Layer fade',
+                    current.id,
+                    kind === 'none' || !picture
+                      ? { mask: null }
+                      : { mask: defaultMask(kind, current, picture.width, picture.height) },
+                  )
+                }}
+              >
+                <option value="none">None</option>
+                <option value="linear">Linear gradient</option>
+                <option value="radial">Radial gradient</option>
+              </select>
+            </span>
+          </label>
+          {current.mask && (
+            <MaskControls
+              layerId={current.id}
+              mask={current.mask}
+              width={image.width}
+              height={image.height}
+            />
+          )}
         </Group>
       )}
     </div>
+  )
+}
+
+function MaskControls({
+  layerId,
+  mask,
+  width,
+  height,
+}: {
+  layerId: string
+  mask: LayerMask
+  width: number
+  height: number
+}) {
+  const set = (patch: Partial<LayerMask>, commit: boolean) =>
+    (commit ? commitLayer : (_l: string, id: string, p: object) => previewLayer(id, p))(
+      'Layer fade',
+      layerId,
+      {
+        mask: { ...mask, ...patch },
+      },
+    )
+  const point = (label: string, key: 'x0' | 'y0' | 'x1' | 'y1', max: number) => (
+    <Slider
+      key={key}
+      label={label}
+      value={mask[key]}
+      min={-max}
+      max={max * 2}
+      neutral={0}
+      unit="px"
+      onPreview={(v) => set({ [key]: Math.round(v) }, false)}
+      onCommit={(v) => set({ [key]: Math.round(v) }, true)}
+    />
+  )
+  return (
+    <>
+      {point(mask.kind === 'linear' ? 'Start X' : 'Centre X', 'x0', width)}
+      {point(mask.kind === 'linear' ? 'Start Y' : 'Centre Y', 'y0', height)}
+      {point(mask.kind === 'linear' ? 'End X' : 'Edge X', 'x1', width)}
+      {point(mask.kind === 'linear' ? 'End Y' : 'Edge Y', 'y1', height)}
+      <Check label="Invert" checked={mask.invert} onChange={(v) => set({ invert: v }, true)} />
+    </>
   )
 }

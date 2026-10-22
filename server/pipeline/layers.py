@@ -13,7 +13,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from pipeline import geometry
-from pipeline.ops import Layer
+from pipeline.ops import Layer, LayerMask
 
 Array = NDArray[np.float32]
 F32 = np.float32
@@ -40,6 +40,23 @@ def place(source: Array, layer: Layer, width: int, height: int) -> Array:
     step = geometry.Step(None, placement(layer), width, height, (0.0, 0.0, 0.0, 0.0))  # type: ignore[arg-type]
     inverse = np.asarray(np.linalg.inv(placement(layer)), dtype=np.float64)
     return geometry._sample(source, inverse, step)
+
+
+def mask_values(mask: LayerMask, width: int, height: int) -> Array:
+    """The mask as an (H, W, 1) array of 0..1, sampled at pixel centres."""
+    xs = np.arange(width, dtype=np.float64) + 0.5
+    ys = np.arange(height, dtype=np.float64) + 0.5
+    gx, gy = np.meshgrid(xs, ys)
+    dx, dy = mask.x1 - mask.x0, mask.y1 - mask.y0
+    if mask.kind == "linear":
+        t = ((gx - mask.x0) * dx + (gy - mask.y0) * dy) / (dx * dx + dy * dy)
+        value = np.clip(t, 0.0, 1.0)
+    else:
+        radius = (dx * dx + dy * dy) ** 0.5
+        value = 1.0 - np.clip(np.hypot(gx - mask.x0, gy - mask.y0) / radius, 0.0, 1.0)
+    if mask.invert:
+        value = 1.0 - value
+    return value.astype(F32)[..., None]
 
 
 def _soft_light(cb: Array, cs: Array) -> Array:
@@ -96,5 +113,8 @@ def composite(base: Array, layers: list[Layer], load: LayerLoader | None) -> Arr
     out = base
     for layer in visible:
         placed = place(load(layer.image_id), layer, width, height)
+        if layer.mask is not None:
+            placed = placed.copy()
+            placed[..., 3:4] *= mask_values(layer.mask, width, height)
         out = blend(out, placed, layer.blend, layer.opacity / 100.0)
     return out

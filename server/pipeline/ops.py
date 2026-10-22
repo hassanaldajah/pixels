@@ -232,6 +232,26 @@ LAYER_ID = re.compile(r"^[a-z0-9]{6,32}$")
 IMAGE_ID = re.compile(r"^[0-9a-f]{32}$")
 
 
+class LayerMask(_Model):
+    """A gradient that fades a layer. Linear: transparent at (x0, y0) to opaque at (x1, y1).
+    Radial: opaque at the centre (x0, y0) to transparent at the distance to (x1, y1). `invert` flips it."""
+
+    kind: Literal["linear", "radial"]
+    x0: float = Field(ge=-1e6, le=1e6)
+    y0: float = Field(ge=-1e6, le=1e6)
+    x1: float = Field(ge=-1e6, le=1e6)
+    y1: float = Field(ge=-1e6, le=1e6)
+    invert: bool = False
+
+    @field_validator("y1")
+    @classmethod
+    def _distinct(cls, value: float, info: object) -> float:
+        data = getattr(info, "data", {})
+        if (data.get("x0"), data.get("y0")) == (data.get("x1"), value):
+            raise ValueError("the mask's two points must differ")
+        return value
+
+
 class Layer(_Model):
     """A picture placed above the edited image. Its pixels are another sanitised working copy."""
 
@@ -244,6 +264,7 @@ class Layer(_Model):
     x: float = Field(default=0.0, ge=-1e6, le=1e6)  # top-left corner on the canvas, in pixels
     y: float = Field(default=0.0, ge=-1e6, le=1e6)
     scale: float = Field(default=1.0, ge=0.01, le=20.0)
+    mask: LayerMask | None = None
 
     @field_validator("id")
     @classmethod

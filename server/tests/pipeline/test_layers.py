@@ -10,7 +10,7 @@ from PIL import Image
 from pydantic import ValidationError
 
 from pipeline import layers, project
-from pipeline.ops import EditState, Layer
+from pipeline.ops import EditState, Layer, LayerMask
 
 ID_A = "a" * 32
 ID_B = "b" * 32
@@ -165,3 +165,31 @@ def test_project_refuses_unexpected_layer_names(name: str) -> None:
         archive.writestr(name, b"x")
     with pytest.raises(project.ProjectError):
         project.load(buffer.getvalue(), 10_000_000)
+
+
+# --- gradient masks ------------------------------------------------------------------------------
+def test_linear_mask_runs_from_transparent_to_opaque() -> None:
+    mask = LayerMask(kind="linear", x0=0, y0=0, x1=10, y1=0)
+    v = layers.mask_values(mask, 10, 2)[..., 0]
+    assert np.allclose(v[0], (np.arange(10) + 0.5) / 10, atol=1e-6) and np.allclose(v[0], v[1])
+    inverted = layers.mask_values(mask.model_copy(update={"invert": True}), 10, 2)[..., 0]
+    assert np.allclose(inverted, 1 - v, atol=1e-6)
+
+
+def test_radial_mask_is_opaque_in_the_centre() -> None:
+    mask = LayerMask(kind="radial", x0=5, y0=5, x1=10, y1=5)
+    v = layers.mask_values(mask, 10, 10)[..., 0]
+    assert v[4:6, 4:6].min() > 0.85 and v[0, 0] == 0.0 and v[5, 9] < 0.1
+
+
+def test_mask_points_must_differ() -> None:
+    with pytest.raises(ValidationError):
+        LayerMask(kind="linear", x0=3, y0=3, x1=3, y1=3)
+
+
+def test_masked_layer_fades_in_the_composite() -> None:
+    base = solid(10, 1, (0, 0, 0, 1))
+    pictures = {ID_A: solid(10, 1, (1, 1, 1, 1))}
+    fade = Layer(id="fade01", image_id=ID_A, mask=LayerMask(kind="linear", x0=0, y0=0, x1=10, y1=0))
+    out = layers.composite(base, [fade], pictures.__getitem__)
+    assert out[0, 0, 0] < 0.1 and out[0, 9, 0] > 0.9 and np.all(np.diff(out[0, :, 0]) > 0)

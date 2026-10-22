@@ -399,6 +399,41 @@ cases.push(
     2,
   ],
   [
+    'layer: linear fade',
+    {
+      geometry: [],
+      adjust: adjust(),
+      layers: [
+        lay({
+          x: 20,
+          y: 20,
+          scale: 2,
+          mask: { kind: 'linear', x0: 30, y0: 60, x1: 190, y1: 60, invert: false },
+        }),
+      ],
+    },
+    layeredScaled,
+    2,
+  ],
+  [
+    'layer: radial fade, inverted, multiply',
+    {
+      geometry: [],
+      adjust: adjust(),
+      layers: [
+        lay({
+          x: 40,
+          y: 30,
+          scale: 1.8,
+          blend: 'multiply',
+          mask: { kind: 'radial', x0: 110, y0: 80, x1: 170, y1: 80, invert: true },
+        }),
+      ],
+    },
+    layeredScaled,
+    2,
+  ],
+  [
     'layer: after crop + adjustments',
     {
       geometry: [{ type: 'crop', x: 8, y: 8, w: 200, h: 150 }],

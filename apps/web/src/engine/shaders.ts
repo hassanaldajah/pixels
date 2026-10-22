@@ -273,6 +273,10 @@ uniform ivec2 u_layerSize;     // size of the layer texture
 uniform mat3 u_inv;            // preview-canvas pixel centre -> layer texture position (column-major)
 uniform float u_opacity;       // 0..1
 uniform int u_mode;
+uniform int u_maskKind;       // 0 none, 1 linear, 2 radial
+uniform vec4 u_mask;           // x0, y0, x1, y1 in full-resolution canvas pixels
+uniform int u_maskInvert;
+uniform float u_preview;       // preview scale (preview px per full px)
 
 vec4 layerTexel(ivec2 i) {
   vec4 t = texelFetch(u_layer, clamp(i, ivec2(0), u_layerSize - 1), 0);
@@ -309,7 +313,16 @@ void main() {
   vec3 cs = acc.a > 1e-6 ? acc.rgb / acc.a : vec3(0.0);
   float inside = min(min(p.x, float(u_layerSize.x) - p.x), min(p.y, float(u_layerSize.y) - p.y));
   float coverage = valid ? clamp(inside + 0.5, 0.0, 1.0) : 0.0;
-  float as = coverage * acc.a * u_opacity;
+  float maskValue = 1.0;
+  if (u_maskKind != 0) {
+    vec2 g = gl_FragCoord.xy / u_preview;
+    vec2 d = u_mask.zw - u_mask.xy;
+    maskValue = u_maskKind == 1
+      ? clamp(dot(g - u_mask.xy, d) / dot(d, d), 0.0, 1.0)
+      : 1.0 - clamp(length(g - u_mask.xy) / length(d), 0.0, 1.0);
+    if (u_maskInvert == 1) maskValue = 1.0 - maskValue;
+  }
+  float as = coverage * acc.a * u_opacity * maskValue;
   float ab = base.a;
   vec3 cb = base.rgb;
   vec3 mixed = (1.0 - ab) * cs + ab * clamp(blendRgb(cb, cs), 0.0, 1.0);

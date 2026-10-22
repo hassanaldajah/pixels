@@ -394,6 +394,11 @@ export class GpuPipeline {
       gl.uniformMatrix3fv(p.loc('u_inv'), false, columns)
       p.f('u_opacity', layer.opacity / 100)
       p.i('u_mode', BLEND_MODES.indexOf(layer.blend))
+      const m = layer.mask
+      p.i('u_maskKind', m ? (m.kind === 'linear' ? 1 : 2) : 0)
+      if (m) gl.uniform4f(p.loc('u_mask'), m.x0, m.y0, m.x1, m.y1)
+      p.i('u_maskInvert', m?.invert ? 1 : 0)
+      p.f('u_preview', preview)
     })
     return out
   }

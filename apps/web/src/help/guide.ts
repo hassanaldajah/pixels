@@ -285,6 +285,7 @@ export const GUIDE: GuideSection[] = [
           'Open Layers in the Inspector and press Add layer. Choose another picture. It goes through the same security checks as any file.',
           'Select the layer in the list. Set Opacity, Blend, Size, and the X / Y position.',
           'Use the arrows to move a layer up or down the stack. The list shows the top layer first.',
+          'To place it with the mouse, choose the Move tool (M) and drag the selected layer on the picture. Arrow keys nudge it by 1 pixel (10 with Shift).',
         ],
       },
       {
@@ -349,8 +350,8 @@ export const GUIDE: GuideSection[] = [
           ['F1', 'This guide'],
           ['?', 'All keyboard shortcuts'],
           [
-            'V  C  A  E  D  S  B  P  U  R',
-            'Select, Transform, Adjust, Eraser, Brush, Clone, Retouch, Pixel Art, Upscale, Presets',
+            'V  M  C  A  E  D  S  B  P  U  R',
+            'Select, Move, Transform, Adjust, Eraser, Brush, Clone, Retouch, Pixel Art, Upscale, Presets',
           ],
           ['\\ (hold)', 'Show the original'],
           ['Space + drag', 'Move around the picture'],

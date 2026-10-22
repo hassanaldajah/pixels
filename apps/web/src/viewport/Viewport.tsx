@@ -9,6 +9,7 @@ import { guideTargets, imageToScreen, screenToImage, snapGuide, zoomAt, type Poi
 import { GlViewport } from './renderer'
 import { useEngine } from './useEngine'
 import { BrushOverlay } from './BrushOverlay'
+import { MoveOverlay } from './MoveOverlay'
 import { CloneOverlay } from './CloneOverlay'
 import { EraserOverlay } from './EraserOverlay'
 import { MiniMap } from './MiniMap'
@@ -356,6 +357,7 @@ export function Viewport({ onGlError }: { onGlError: (message: string) => void }
       {hasImage && <PixelArtOverlay />}
       {hasImage && <EraserOverlay />}
       {hasImage && <BrushOverlay />}
+      {hasImage && <MoveOverlay />}
       {hasImage && <CloneOverlay />}
       {hasImage && <Rulers onStartGuide={startGuide} />}
       {hasImage && <TransformOverlay />}

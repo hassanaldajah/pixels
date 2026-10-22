@@ -227,6 +227,7 @@ Local adjustments change light and colour only where a gradient is strong. Use t
 1. Open Layers in the Inspector and press Add layer. Choose another picture. It goes through the same security checks as any file.
 2. Select the layer in the list. Set Opacity, Blend, Size, and the X / Y position.
 3. Use the arrows to move a layer up or down the stack. The list shows the top layer first.
+4. To place it with the mouse, choose the Move tool (M) and drag the selected layer on the picture. Arrow keys nudge it by 1 pixel (10 with Shift).
 
 - Blend modes: Normal, Multiply (darkens, good for shadows), Screen (lightens, good for glows), Overlay and Soft light (add contrast), Darken, Lighten, Difference.
 - Fade: make a layer fade out along a line (Linear) or from its centre (Radial) instead of ending sharply.
@@ -276,7 +277,7 @@ Local adjustments change light and colour only where a gradient is strong. Use t
 | Ctrl+K | Command palette |
 | F1 | This guide |
 | ? | All keyboard shortcuts |
-| V  C  A  E  D  S  B  P  U  R | Select, Transform, Adjust, Eraser, Brush, Clone, Retouch, Pixel Art, Upscale, Presets |
+| V  M  C  A  E  D  S  B  P  U  R | Select, Move, Transform, Adjust, Eraser, Brush, Clone, Retouch, Pixel Art, Upscale, Presets |
 | \ (hold) | Show the original |
 | Space + drag | Move around the picture |
 | Wheel | Zoom |

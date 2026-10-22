@@ -216,6 +216,31 @@ await page.waitForFunction((n) => document.querySelectorAll('.history li').lengt
 })
 check(true, 'adding a shape creates another layer')
 
+// ---- Move tool: drag the selected layer ---------------------------------------------------------
+await page.locator('.section-head', { hasText: 'Layers' }).first().click()
+await page.locator('.layer-name').first().click()
+const xBefore = await page
+  .locator('.slider')
+  .filter({ has: page.locator('label', { hasText: /^X$/ }) })
+  .first()
+  .locator('input[type="number"]')
+  .inputValue()
+await pick('Move')
+await page.waitForSelector('.move-layer')
+const mb = await page.locator('.move-layer').boundingBox()
+await page.mouse.move(mb.x + mb.width * 0.5, mb.y + mb.height * 0.5)
+await page.mouse.down()
+for (let i = 1; i <= 6; i++) await page.mouse.move(mb.x + mb.width * (0.5 + i * 0.04), mb.y + mb.height * 0.5)
+await page.mouse.up()
+await page.waitForTimeout(400)
+const xAfter = await page
+  .locator('.slider')
+  .filter({ has: page.locator('label', { hasText: /^X$/ }) })
+  .first()
+  .locator('input[type="number"]')
+  .inputValue()
+check(xBefore !== xAfter, `dragging with the Move tool moves the layer (X ${xBefore} -> ${xAfter})`)
+
 // ---- User guide (F1) ------------------------------------------------------------------------
 await page.keyboard.press('F1')
 await page.waitForSelector('[role="dialog"][aria-label="User guide"]')

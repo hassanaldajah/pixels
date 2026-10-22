@@ -20,6 +20,14 @@ export const TOOLS: Tool[] = [
     description: 'Move, pan and inspect the image.',
   },
   {
+    id: 'move',
+    label: 'Move',
+    icon: 'move',
+    shortcut: 'M',
+    ready: true,
+    description: 'Drag the selected layer on the picture. Arrow keys nudge it.',
+  },
+  {
     id: 'transform',
     label: 'Transform',
     icon: 'transform',

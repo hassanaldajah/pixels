@@ -125,6 +125,17 @@ export function RightPanel() {
           {image && tool === 'adjust' && <AdjustPanel />}
           {image && tool === 'eraser' && <EraserPanel />}
           {image && tool === 'brush' && <BrushPanel />}
+          {image && tool === 'move' && (
+            <div className="tool-panel">
+              <div className="tool-panel-head">
+                <h4>Move</h4>
+              </div>
+              <p className="hint">
+                Drag on the picture to move the selected layer (hold Shift for a straight line). Arrow keys
+                nudge it. Pick the layer first in Layers.
+              </p>
+            </div>
+          )}
           {image && tool === 'clone' && <ClonePanel />}
           {image && tool === 'background' && <RetouchPanel />}
           {image && tool === 'upscale' && <UpscalePanel />}

@@ -213,7 +213,9 @@ def test_project_round_trip() -> None:
     Image.new("RGB", (4, 4), (9, 9, 9)).save(png, "PNG")
     data = project.save(_project(), png.getvalue())
     loaded, image, layer_pngs = project.load(data, 10_000_000)
-    assert loaded.name == "demo" and loaded.index == 1 and image == png.getvalue() and layer_pngs == {}
+    assert (
+        loaded.name == "demo" and loaded.index == 1 and image == png.getvalue() and layer_pngs == {}
+    )
     assert loaded.history[1].state.adjust.exposure == 0.5
 
 

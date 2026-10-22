@@ -266,7 +266,8 @@ IMAGE_ID = re.compile(r"^[0-9a-f]{32}$")
 
 class LayerMask(_Model):
     """A gradient that fades a layer. Linear: transparent at (x0, y0) to opaque at (x1, y1).
-    Radial: opaque at the centre (x0, y0) to transparent at the distance to (x1, y1). `invert` flips it."""
+    Radial: opaque at the centre (x0, y0) to transparent at the distance to (x1, y1). `invert` flips it.
+    """
 
     kind: Literal["linear", "radial"]
     x0: float = Field(ge=-1e6, le=1e6)

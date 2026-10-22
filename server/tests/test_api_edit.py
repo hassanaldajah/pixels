@@ -478,13 +478,18 @@ def test_project_keeps_layer_pictures_and_gates_them_again(client: TestClient) -
     assert saved.status_code == 200, saved.text
     with zipfile.ZipFile(io.BytesIO(saved.content)) as archive:
         assert f"layers/{top['id']}.png" in archive.namelist()
-    opened = client.post("/api/projects/open", content=saved.content, headers={"X-Filename": "L.pxe"})
+    opened = client.post(
+        "/api/projects/open", content=saved.content, headers={"X-Filename": "L.pxe"}
+    )
     assert opened.status_code == 201, opened.text
     new_layer_id = opened.json()["project"]["history"][1]["state"]["layers"][0]["image_id"]
     assert new_layer_id != top["id"]  # a fresh copy that went through the gate
     exported = client.post(
         f"/api/images/{opened.json()['id']}/export",
-        json={"state": opened.json()["project"]["history"][1]["state"], "options": {"format": "png"}},
+        json={
+            "state": opened.json()["project"]["history"][1]["state"],
+            "options": {"format": "png"},
+        },
     )
     with image(exported.content) as out:
         assert out.convert("RGB").getpixel((3, 3)) == (0, 255, 0)

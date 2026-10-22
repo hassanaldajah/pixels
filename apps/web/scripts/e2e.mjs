@@ -79,8 +79,8 @@ await page.waitForTimeout(900)
 await page.screenshot({ path: path.join(shots, '04-workspace-empty.png') })
 
 check(
-  (await page.locator('.topbar').count()) === 1 && (await page.locator('.toolrail .tool').count()) === 8,
-  'workspace shell and 8 tools render',
+  (await page.locator('.topbar').count()) === 1 && (await page.locator('.toolrail .tool').count()) === 12,
+  'workspace shell and 12 tools render',
 )
 check((await page.locator('.tier').count()) === 0, 'no hardware-tier badge (no AI models are used)')
 

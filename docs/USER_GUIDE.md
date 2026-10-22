@@ -19,6 +19,7 @@ Generated from `apps/web/src/help/guide.ts`. Do not edit by hand.
 - [Selection: limit the adjustments](#selection)
 - [Local adjustments](#local)
 - [Layers](#layers)
+- [Text and shapes](#text)
 - [Saving and exporting](#save)
 - [Keyboard shortcuts](#shortcuts)
 - [Problems and answers](#help)
@@ -232,6 +233,18 @@ Local adjustments change light and colour only where a gradient is strong. Use t
 - You can have up to 16 layers. Layer pictures are saved inside project files.
 
 > **Tip:** Hide a layer with the eye icon to compare with and without it.
+
+<a id="text"></a>
+
+## Text and shapes
+
+*Add words, boxes, circles and lines.*
+
+1. Open "Text & shapes" in the Inspector.
+2. Type your text, choose a font, size and colour, then press Add text layer. Or choose a shape, set its size, and press Add shape layer.
+3. The new item is a layer. Select it in Layers to move it (X / Y), resize it, fade it or change its blend mode.
+
+> **Tip:** To change the text later, delete the layer and add it again. A text layer is a picture of the text, so it keeps the same look on every computer.
 
 <a id="save"></a>
 

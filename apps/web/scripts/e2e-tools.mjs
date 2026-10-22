@@ -200,6 +200,22 @@ check(
   'the brush panel says where the next stroke goes',
 )
 
+// ---- Text and shapes as layers ---------------------------------------------------------------
+await pick('Select')
+await page.locator('.section-head', { hasText: 'Text & shapes' }).click()
+await page.getByRole('textbox', { name: 'Text' }).fill('Hello')
+const layersBefore = await page.locator('.history li').count()
+await page.getByRole('button', { name: 'Add text layer' }).click()
+await page.waitForFunction((n) => document.querySelectorAll('.history li').length > n, layersBefore, {
+  timeout: 20000,
+})
+check(true, 'adding text creates a layer (one history step)')
+await page.getByRole('button', { name: 'Add shape layer' }).click()
+await page.waitForFunction((n) => document.querySelectorAll('.history li').length > n + 1, layersBefore, {
+  timeout: 20000,
+})
+check(true, 'adding a shape creates another layer')
+
 // ---- User guide (F1) ------------------------------------------------------------------------
 await page.keyboard.press('F1')
 await page.waitForSelector('[role="dialog"][aria-label="User guide"]')

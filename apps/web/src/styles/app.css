@@ -2183,6 +2183,28 @@ kbd,
     grid-template-columns: 1fr;
   }
 }
-.guide-page ul { list-style: disc; }
-.guide-page ol { list-style: decimal; }
-.guide-page li::marker { color: var(--px-accent, #4fb6ff); }
+.guide-page ul {
+  list-style: disc;
+}
+.guide-page ol {
+  list-style: decimal;
+}
+.guide-page li::marker {
+  color: var(--px-accent, #4fb6ff);
+}
+
+.text-input {
+  width: 100%;
+  resize: vertical;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--px-border, rgba(255, 255, 255, 0.12));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.layers-panel hr {
+  border: 0;
+  border-top: 1px solid var(--px-border, rgba(255, 255, 255, 0.08));
+  margin: 4px 0;
+}

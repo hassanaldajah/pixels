@@ -298,6 +298,23 @@ export const GUIDE: GuideSection[] = [
     ],
   },
   {
+    id: 'text',
+    title: 'Text and shapes',
+    summary: 'Add words, boxes, circles and lines.',
+    blocks: [
+      {
+        steps: [
+          'Open "Text & shapes" in the Inspector.',
+          'Type your text, choose a font, size and colour, then press Add text layer. Or choose a shape, set its size, and press Add shape layer.',
+          'The new item is a layer. Select it in Layers to move it (X / Y), resize it, fade it or change its blend mode.',
+        ],
+      },
+      {
+        tip: 'To change the text later, delete the layer and add it again. A text layer is a picture of the text, so it keeps the same look on every computer.',
+      },
+    ],
+  },
+  {
     id: 'save',
     title: 'Saving and exporting',
     summary: 'Pictures, icon sets, projects, batches.',

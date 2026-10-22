@@ -11,6 +11,7 @@ import { HistoryPanel } from './HistoryPanel'
 import { LayersPanel } from './LayersPanel'
 import { LocalPanel } from './LocalPanel'
 import { SelectionPanel } from './SelectionPanel'
+import { TextShapePanel } from './TextShapePanel'
 import { Histogram } from './Histogram'
 import { PixelArtPanel } from './PixelArtPanel'
 import { PresetsPanel } from './PresetsPanel'
@@ -156,6 +157,9 @@ export function RightPanel() {
           </Section>
           <Section title="Selection" defaultOpen={false}>
             <SelectionPanel />
+          </Section>
+          <Section title="Text & shapes" defaultOpen={false}>
+            <TextShapePanel />
           </Section>
           <Section title="Layers" defaultOpen={false}>
             <LayersPanel />

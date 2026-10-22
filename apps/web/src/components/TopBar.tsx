@@ -257,6 +257,15 @@ export function TopBar() {
       >
         <Icon name="command" />
       </button>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label="User guide"
+        title="User guide (F1)"
+        onClick={() => set({ guideOpen: true })}
+      >
+        <Icon name="help" />
+      </button>
       <ThemeToggle />
       <button type="button" className="button" onClick={openFilePicker}>
         <Icon name="upload" size={15} /> Open

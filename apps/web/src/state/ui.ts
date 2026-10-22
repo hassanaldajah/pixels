@@ -52,6 +52,7 @@ interface UiState {
   reduceEffects: boolean
   paletteOpen: boolean
   helpOpen: boolean
+  guideOpen: boolean
   exportOpen: boolean
   set: (patch: Partial<Omit<UiState, 'set'>>) => void
 }
@@ -77,6 +78,7 @@ export const useUi = create<UiState>()(
       reduceEffects: false,
       paletteOpen: false,
       helpOpen: false,
+      guideOpen: false,
       exportOpen: false,
       set: (patch) => set(patch),
     }),

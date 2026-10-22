@@ -200,6 +200,26 @@ check(
   'the brush panel says where the next stroke goes',
 )
 
+// ---- User guide (F1) ------------------------------------------------------------------------
+await page.keyboard.press('F1')
+await page.waitForSelector('[role="dialog"][aria-label="User guide"]')
+check((await page.locator('.guide-nav button').count()) >= 15, 'F1 opens the user guide with its sections')
+await page.locator('.guide-search').fill('feather')
+check(
+  (await page.locator('.guide-page h4').innerText()).includes('Selection'),
+  'searching the guide jumps to the matching section',
+)
+await page.locator('.guide-search').fill('zzzzqqq')
+check((await page.getByText('Nothing matches').count()) === 1, 'a search with no match says so')
+await page.keyboard.press('Escape')
+await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="User guide"]'))
+await page.getByRole('button', { name: 'User guide' }).click()
+check(
+  (await page.locator('[role="dialog"][aria-label="User guide"]').count()) === 1,
+  'the Help button in the top bar opens the guide',
+)
+await page.keyboard.press('Escape')
+
 await browser.close()
 console.log(fail.length ? `\n${fail.length} check(s) failed` : '\nAll checks passed')
 process.exit(fail.length ? 1 : 0)

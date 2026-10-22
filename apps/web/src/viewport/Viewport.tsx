@@ -54,10 +54,13 @@ export function Viewport({ onGlError }: { onGlError: (message: string) => void }
     gl.current = renderer
 
     const resize = () => {
-      const rect = container.getBoundingClientRect()
+      // The layout size, not getBoundingClientRect(): that one includes CSS transforms, and the app's opening
+      // animation scales the workspace from 97% to 100%, which left the canvas sized 3% too small for good.
+      const width = container.clientWidth
+      const height = container.clientHeight
       const dpr = window.devicePixelRatio || 1
-      renderer.resize(rect.width, rect.height, dpr)
-      useView.getState().setViewport({ w: rect.width, h: rect.height }, dpr)
+      renderer.resize(width, height, dpr)
+      useView.getState().setViewport({ w: width, h: height }, dpr)
       dirty.current = true
     }
     const observer = new ResizeObserver(resize)

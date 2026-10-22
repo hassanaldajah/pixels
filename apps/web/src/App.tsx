@@ -22,8 +22,10 @@ import { Viewport } from './viewport/Viewport'
 const SPLASH_KEY = 'pixels.splash'
 const DOCK_COLLAPSED = 40
 
+/** The desktop window plays the opening on its own loading page and then opens the app with ?splash=0. */
 function splashAlreadyShown(): boolean {
   try {
+    if (new URLSearchParams(window.location.search).get('splash') === '0') return true
     return sessionStorage.getItem(SPLASH_KEY) === '1'
   } catch {
     return false

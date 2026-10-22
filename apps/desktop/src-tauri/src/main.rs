@@ -115,7 +115,7 @@ fn start(app: tauri::AppHandle) {
     })();
 
     match result {
-        Ok(port) => match Url::parse(&format!("http://127.0.0.1:{port}/")) {
+        Ok(port) => match Url::parse(&format!("http://127.0.0.1:{port}/?splash=0")) {
             Ok(url) => {
                 let _ = window.navigate(url);
             }

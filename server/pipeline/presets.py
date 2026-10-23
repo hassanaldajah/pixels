@@ -12,6 +12,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image, ImageDraw
 
+from pipeline.errors import PublicError
 from pipeline.export import Encoded, ExportOptions, encode
 from pipeline.geometry import _resize
 
@@ -165,7 +166,7 @@ def app_icons(
     """Build the icon set from a square RGBA image (ideally 1024 px or more). Returns (zip, file list)."""
     unknown = set(platforms) - set(PLATFORMS)
     if unknown:
-        raise ValueError(f"Unknown platforms: {', '.join(sorted(unknown))}")
+        raise PublicError(f"Unknown platforms: {', '.join(sorted(unknown))}")
     files: dict[str, bytes] = {}
     bg = (*_hex(background), 1.0)
 
@@ -288,7 +289,7 @@ def sized_images(
     for preset_id in ids:
         preset = SIZE_BY_ID.get(preset_id)
         if preset is None:
-            raise ValueError(f"Unknown size preset: {preset_id}")
+            raise PublicError(f"Unknown size preset: {preset_id}")
         framed = fit_to(image, preset.w, preset.h, mode, focus, background)
         encoded: Encoded = encode(framed, export)
         files[f"{preset.id}-{preset.w}x{preset.h}.{encoded.extension}"] = encoded.data

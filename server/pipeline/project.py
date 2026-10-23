@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from pipeline.errors import PublicError
 from pipeline.ops import EditState
 
 FORMAT = "pixels-project"
@@ -28,7 +29,7 @@ MAX_LAYER_IMAGES = 32
 LAYER_NAME = re.compile(r"^layers/([0-9a-f]{32})\.png$")
 
 
-class ProjectError(ValueError):
+class ProjectError(PublicError):
     """The file is not a valid project. The message is shown to the user."""
 
 

@@ -19,6 +19,7 @@ from typing import cast
 import numpy as np
 from numpy.typing import NDArray
 
+from pipeline.errors import PublicError
 from pipeline.ops import PixelArt
 
 F32 = np.float32
@@ -234,7 +235,7 @@ def apply(image: Array, options: PixelArt) -> tuple[Array, dict[str, object]]:
         palette = kmeans(points, options.colors)
     elif options.palette == "custom":
         if not options.custom_palette:
-            raise ValueError("Choose or import a palette first.")
+            raise PublicError("Choose or import a palette first.")
         palette = palette_array(options.custom_palette)
     else:
         palette = palette_array(PALETTES[options.palette])

@@ -14,9 +14,10 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import Field, field_validator
 
-from app.api_edit import _Body, _error, _image_path
+from app.api_edit import _Body, _image_path, _why
 from app.storage import new_id
 from pipeline import retouch
+from pipeline.errors import PublicError
 from pipeline.geometry import GeometryError
 from pipeline.ops import EditState
 from pipeline.render import load_rgba, render_base
@@ -41,7 +42,7 @@ class CutoutBody(_Retouch):
     @classmethod
     def _colour(cls, value: str | None) -> str | None:
         if value is not None and not HEX.fullmatch(value):
-            raise ValueError("colour must be #rrggbb")
+            raise PublicError("colour must be #rrggbb")
         return value
 
 
@@ -79,7 +80,7 @@ async def _derive(
         result = make(base)
         h, w = result.shape[:2]
         if h * w > settings.max_render_pixels:
-            raise ValueError("The result would be larger than this computer is set up to handle.")
+            raise PublicError("The result would be larger than this computer is set up to handle.")
         has_alpha = bool((result[..., 3] < 0.999).any())
         rgba = np.round(np.clip(result, 0, 1) * 255).astype(np.uint8)
         workdir = settings.spool_dir / new_id()
@@ -101,7 +102,7 @@ async def _derive(
         async with state.render_slots:
             out, new_meta = await anyio.to_thread.run_sync(work)
     except (GeometryError, ValueError) as exc:
-        return _error("bad_edit", str(exc))
+        return _why("bad_edit", exc)
     new = new_id()
     try:
         state.store.adopt(new, out, new_meta)

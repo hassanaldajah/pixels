@@ -7,6 +7,7 @@ import binascii
 import hashlib
 import io
 import json
+import logging
 import re
 import shutil
 import zipfile
@@ -22,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.api import _clean_filename, gate_and_store
 from app.storage import is_valid_id, new_id
 from pipeline import horizon, inpaint, pixelart, presets, project
+from pipeline.errors import PublicError
 from pipeline.export import ExportOptions, encode
 from pipeline.geometry import GeometryError
 from pipeline.ops import HSL_BANDS, EditState
@@ -71,8 +73,25 @@ class ProjectSaveBody(_Body):
     project: project.ProjectFile
 
 
+log = logging.getLogger("pixels.api")
+GENERIC = "That could not be applied. Check the settings and try again."
+
+
 def _error(code: str, message: str, status: int = 422) -> JSONResponse:
     return JSONResponse({"code": code, "message": message}, status_code=status)
+
+
+def _text(code: str, exc: Exception) -> str:
+    """What to tell the user. Our own messages (PublicError) are written for them; anything else may carry internal
+    details from a library, so it goes to the log and they get a generic sentence."""
+    if isinstance(exc, PublicError):
+        return str(exc)
+    log.warning("%s: %s: %s", code, type(exc).__name__, exc)
+    return GENERIC
+
+
+def _why(code: str, exc: Exception) -> JSONResponse:
+    return _error(code, _text(code, exc))
 
 
 def _image_path(request: Request, image_id: str) -> tuple[Path, dict[str, Any]] | JSONResponse:
@@ -130,7 +149,7 @@ def _layer_loader(request: Request) -> Any:
     def load(image_id: str) -> Any:
         path = store.png_path(image_id)
         if not path.is_file():
-            raise ValueError("A layer's picture is no longer available. Add it again.")
+            raise PublicError("A layer's picture is no longer available. Add it again.")
         return load_rgba(path)
 
     return load
@@ -159,7 +178,7 @@ async def export_image(request: Request, image_id: str, body: ExportBody) -> Res
             encode, rendered, body.options, meta.get("safe_exif")
         )
     except ValueError as exc:  # includes GeometryError and a missing layer picture
-        return _error("bad_edit", str(exc))
+        return _why("bad_edit", exc)
     return _download(encoded.data, f"{_stem(meta)}-edited.{encoded.extension}", encoded.media_type)
 
 
@@ -195,7 +214,7 @@ async def export_icons(request: Request, image_id: str, body: IconsBody) -> Resp
             presets.app_icons, square, body.platforms, body.background
         )
     except (GeometryError, ValueError) as exc:
-        return _error("bad_request", str(exc))
+        return _why("bad_request", exc)
     response = _download(data, f"{_stem(meta)}-app-icons.zip", "application/zip")
     response.headers["X-Pixels-Files"] = str(len(names))
     return response
@@ -220,7 +239,7 @@ async def export_sizes(request: Request, image_id: str, body: SizesBody) -> Resp
             )
         )
     except (GeometryError, ValueError) as exc:
-        return _error("bad_request", str(exc))
+        return _why("bad_request", exc)
     response = _download(data, f"{_stem(meta)}-sizes.zip", "application/zip")
     response.headers["X-Pixels-Files"] = str(len(names))
     return response
@@ -263,7 +282,7 @@ async def run_batch(request: Request, body: BatchBody) -> Response:
                     files[name] = encoded.data
                     entry.update(status="done", file=name)
                 except (GeometryError, ValueError) as exc:
-                    entry.update(status="failed", error=str(exc))
+                    entry.update(status="failed", error=_text("bad_edit", exc))
             report.append(entry)
             state.hub.publish(
                 {
@@ -313,7 +332,7 @@ async def save_project(request: Request, body: ProjectSaveBody) -> Response:
     try:
         data = await anyio.to_thread.run_sync(work)
     except project.ProjectError as exc:
-        return _error("bad_project", str(exc))
+        return _why("bad_project", exc)
     return _download(data, f"{_stem({'name': body.project.name})}.pxe", "application/octet-stream")
 
 
@@ -340,9 +359,10 @@ async def open_project(request: Request) -> Response:
             project.load, b"".join(chunks), settings.max_file_bytes
         )
     except project.ProjectError as exc:
-        state.security_log.rejected(name, "bad_project", "polyglot", str(exc))
-        state.hub.publish({**job, "status": "failed", "error": str(exc), "progress": 1.0})
-        return _error("bad_project", str(exc))
+        why = _text("bad_project", exc)
+        state.security_log.rejected(name, "bad_project", "polyglot", why)
+        state.hub.publish({**job, "status": "failed", "error": why, "progress": 1.0})
+        return _why("bad_project", exc)
 
     workdir = settings.spool_dir / new_id()
     workdir.mkdir(parents=True)
@@ -470,7 +490,7 @@ async def pixel_preview(request: Request, image_id: str, body: PixelPreviewBody)
         async with request.app.state.render_slots:
             data, info = await anyio.to_thread.run_sync(work)
     except (GeometryError, ValueError) as exc:
-        return _error("bad_edit", str(exc))
+        return _why("bad_edit", exc)
     headers = {
         "Cache-Control": "no-store",
         "X-Pixelart-Info": json.dumps(
@@ -514,7 +534,8 @@ async def erase_object(request: Request, image_id: str, body: EraseBody) -> Resp
         packed = base64.b64decode(body.mask_bits, validate=True)
         mask = inpaint.unpack_mask(packed, body.mask_w, body.mask_h)
     except (ValueError, binascii.Error) as exc:
-        return _error("bad_mask", f"The mask is not valid: {exc}")
+        log.warning("bad_mask: %s", exc)
+        return _error("bad_mask", "The mask is not valid.")
 
     def work() -> tuple[Path, dict[str, Any]]:
         import numpy as np
@@ -525,7 +546,7 @@ async def erase_object(request: Request, image_id: str, body: EraseBody) -> Resp
         h, w = base.shape[:2]
         full_mask = inpaint.fit_mask(mask, w, h)
         if not full_mask.any():
-            raise ValueError("Paint over the thing you want to remove first.")
+            raise PublicError("Paint over the thing you want to remove first.")
         result = inpaint.erase(
             base, full_mask, inpaint.EraseOptions(body.quality, body.grow, body.feather)
         )
@@ -550,7 +571,7 @@ async def erase_object(request: Request, image_id: str, body: EraseBody) -> Resp
         async with state.render_slots:
             out, new_meta = await anyio.to_thread.run_sync(work)
     except (GeometryError, ValueError) as exc:
-        return _error("bad_edit", str(exc))
+        return _why("bad_edit", exc)
     new = new_id()
     try:
         state.store.adopt(new, out, new_meta)

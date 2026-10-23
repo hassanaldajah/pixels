@@ -129,8 +129,8 @@ export const shared = {
     spring: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
   },
   font: {
-    ui: "'Inter Variable', system-ui, sans-serif",
-    display: "'Space Grotesk Variable', 'Inter Variable', system-ui, sans-serif",
+    ui: "'Inter Variable', 'IBM Plex Sans Arabic', system-ui, sans-serif",
+    display: "'Space Grotesk Variable', 'Inter Variable', 'IBM Plex Sans Arabic', system-ui, sans-serif",
     mono: "'JetBrains Mono', ui-monospace, monospace",
   },
 } as const

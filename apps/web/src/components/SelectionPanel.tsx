@@ -1,4 +1,5 @@
 import type { Selection } from '../engine/types'
+import { useT } from '../i18n'
 import { committedState, useDisplayedState, useEdit } from '../state/edit'
 import { useImage } from '../state/image'
 import { Check, Slider } from './controls'
@@ -22,9 +23,10 @@ const previewSel = (selection: Selection) => useEdit.getState().preview({ ...com
 
 /** Limits the Adjust edits to an area. The area is part of the edit state (history, undo and projects cover it). */
 export function SelectionPanel() {
+  const t = useT()
   const image = useImage((s) => s.current)
   const selection = useDisplayedState().selection ?? null
-  if (!image) return <p className="muted">Open an image to select an area.</p>
+  if (!image) return <p className="muted">{t('Open an image to select an area.')}</p>
   const { width, height } = image
 
   const change = (patch: Partial<Selection>, commit: boolean) => {
@@ -49,11 +51,12 @@ export function SelectionPanel() {
   return (
     <div className="layers-panel">
       <p className="hint">
-        Adjustments (light, colour, curves, sharpen...) apply only inside the selected area. Use a feather to
-        blend the edge.
+        {t(
+          'Adjustments (light, colour, curves, sharpen...) apply only inside the selected area. Use a feather to blend the edge.',
+        )}
       </p>
       <label className="field">
-        <span>Shape</span>
+        <span>{t('Shape')}</span>
         <span className="select-wrap">
           <select
             value={selection?.kind ?? 'none'}
@@ -64,11 +67,11 @@ export function SelectionPanel() {
               else write('Select area', rectOf(width, height, kind))
             }}
           >
-            <option value="none">None (whole picture)</option>
-            <option value="rect">Rectangle</option>
-            <option value="ellipse">Ellipse</option>
+            <option value="none">{t('None (whole picture)')}</option>
+            <option value="rect">{t('Rectangle')}</option>
+            <option value="ellipse">{t('Ellipse')}</option>
             {selection?.kind === 'polygon' && (
-              <option value="polygon">Free shape ({selection.points.length} points)</option>
+              <option value="polygon">{t('Free shape ({n} points)', { n: selection.points.length })}</option>
             )}
           </select>
         </span>

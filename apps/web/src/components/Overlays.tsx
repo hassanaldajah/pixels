@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect } from 'react'
 import { useSecurityStatus } from '../api/queries'
+import { useT } from '../i18n'
 import { ACCEPT_ATTRIBUTE } from '../lib/precheck'
 import { openFilePicker } from '../lib/shortcuts'
 import { useImage } from '../state/image'
@@ -72,46 +73,49 @@ export function useIntake(setDragging: (on: boolean) => void): void {
 }
 
 export function DropOverlay() {
+  const t = useT()
   return (
     <div className="drop-overlay" role="presentation">
       <Icon name="upload" size={40} />
-      <strong>Drop to open</strong>
-      <span>Every file is checked before it is shown</span>
+      <strong>{t('Drop to open')}</strong>
+      <span>{t('Every file is checked before it is shown')}</span>
     </div>
   )
 }
 
 export function EmptyState() {
+  const t = useT()
   const importing = useImage((s) => s.importing)
   const { data } = useSecurityStatus()
   return (
     <div className="empty">
       <div className="empty-card glass">
         <Icon name="image" size={34} />
-        <h2>{importing ? 'Checking your image…' : 'Open an image to start'}</h2>
-        <p>Drop a file anywhere, paste from the clipboard, or choose one.</p>
+        <h2>{importing ? t('Checking your image…') : t('Open an image to start')}</h2>
+        <p>{t('Drop a file anywhere, paste from the clipboard, or choose one.')}</p>
         <button type="button" className="button button-primary" onClick={openFilePicker} disabled={importing}>
-          <Icon name="upload" size={15} /> Choose image
+          <Icon name="upload" size={15} /> {t('Choose image')}
         </button>
-        <ol className="steps" aria-label="How it works">
+        <ol className="steps" aria-label={t('How it works')}>
           <li>
             <strong>1</strong>
-            <span>Open a picture</span>
+            <span>{t('Open a picture')}</span>
           </li>
           <li>
             <strong>2</strong>
-            <span>Edit it: crop, colour, curves</span>
+            <span>{t('Edit it: crop, colour, curves')}</span>
           </li>
           <li>
             <strong>3</strong>
-            <span>Export for web, print or app stores</span>
+            <span>{t('Export for web, print or app stores')}</span>
           </li>
         </ol>
         <p className="hint">PNG · JPEG · WebP · TIFF · BMP · HEIC · AVIF</p>
         <p className="hint">
-          <Icon name="shield" size={13} /> Files are scanned, decoded in a sandbox and re-encoded before use
+          <Icon name="shield" size={13} />{' '}
+          {t('Files are scanned, decoded in a sandbox and re-encoded before use')}
           {data && !data.clamav.available
-            ? '. ClamAV is not running, so signature scanning is skipped.'
+            ? `. ${t('ClamAV is not running, so signature scanning is skipped.')}`
             : '.'}
         </p>
       </div>
@@ -120,6 +124,7 @@ export function EmptyState() {
 }
 
 export function Rejections() {
+  const t = useT()
   const rejections = useImage((s) => s.rejections)
   const dismiss = useImage((s) => s.dismissRejection)
   return (
@@ -137,11 +142,16 @@ export function Rejections() {
           >
             <Icon name="shield" size={18} />
             <div className="toast-body">
-              <strong>Not opened</strong>
-              <p>{r.message}</p>
+              <strong>{t('Not opened')}</strong>
+              <p>{t(r.message)}</p>
               {r.steps.length > 0 && <GateSteps steps={r.steps} />}
             </div>
-            <button type="button" className="icon-button" aria-label="Dismiss" onClick={() => dismiss(i)}>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={t('Dismiss')}
+              onClick={() => dismiss(i)}
+            >
               <Icon name="close" size={15} />
             </button>
           </motion.div>
@@ -152,6 +162,7 @@ export function Rejections() {
 }
 
 export function Notices() {
+  const t = useT()
   const notices = useImage((s) => s.notices)
   const clear = useImage((s) => s.clearNotices)
   useEffect(() => {
@@ -163,8 +174,8 @@ export function Notices() {
   return (
     <div className="notices glass" role="status">
       <Icon name="warn" size={15} />
-      <span>{notices.join(' ')}</span>
-      <button type="button" className="icon-button" aria-label="Dismiss notice" onClick={clear}>
+      <span>{notices.map((n) => t(n)).join(' ')}</span>
+      <button type="button" className="icon-button" aria-label={t('Dismiss notice')} onClick={clear}>
         <Icon name="close" size={14} />
       </button>
     </div>

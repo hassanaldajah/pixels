@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useT } from '../i18n'
 import { useUi } from '../state/ui'
 import { useView } from '../state/view'
 import { getLiveView, subscribeLiveView } from './liveView'
@@ -76,6 +77,7 @@ function draw(canvas: HTMLCanvasElement, axis: 'x' | 'y') {
 }
 
 export function Rulers({ onStartGuide }: Props) {
+  const t = useT()
   const top = useRef<HTMLCanvasElement>(null)
   const left = useRef<HTMLCanvasElement>(null)
 
@@ -108,14 +110,14 @@ export function Rulers({ onStartGuide }: Props) {
       <div
         className="ruler ruler-top"
         onPointerDown={(e) => onStartGuide('y', e)}
-        title="Drag down to add a guide"
+        title={t('Drag down to add a guide')}
       >
         <canvas ref={top} />
       </div>
       <div
         className="ruler ruler-left"
         onPointerDown={(e) => onStartGuide('x', e)}
-        title="Drag right to add a guide"
+        title={t('Drag right to add a guide')}
       >
         <canvas ref={left} />
       </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useT } from '../i18n'
 import { useImage } from '../state/image'
 import { useRetouch } from '../state/retouch'
 import { useView } from '../state/view'
@@ -11,6 +12,7 @@ const FACTORS = [
 ] as const
 
 export function UpscalePanel() {
+  const t = useT()
   const retouch = useRetouch()
   const size = useView((s) => s.image)
   const canRestore = useImage((s) => s.versions.length > 0)
@@ -24,11 +26,12 @@ export function UpscalePanel() {
   return (
     <div className="tool-panel">
       <div className="tool-panel-head">
-        <h4>Upscale</h4>
+        <h4>{t('Upscale')}</h4>
       </div>
       <p className="hint">
-        Makes the picture larger with high-quality resampling and a careful sharpening pass that avoids bright
-        or dark halos. It cannot invent detail that was never there, but it keeps edges clean.
+        {t(
+          'Makes the picture larger with high-quality resampling and a careful sharpening pass that avoids bright or dark halos. It cannot invent detail that was never there, but it keeps edges clean.',
+        )}
       </p>
       <Group title="Size">
         <Segmented
@@ -52,7 +55,7 @@ export function UpscalePanel() {
         {out && (
           <p className="hint" aria-live="polite">
             {size?.w} × {size?.h} → {out.w} × {out.h} px
-            {tooBig ? ' (too large for this setup)' : ''}
+            {tooBig ? ` (${t('too large for this setup')})` : ''}
           </p>
         )}
       </Group>
@@ -74,15 +77,15 @@ export function UpscalePanel() {
           disabled={busy || tooBig || !size}
           onClick={() => void retouch.run('upscale', { factor, sharpen })}
         >
-          {retouch.busy === 'upscale' ? 'Enlarging…' : 'Enlarge'}
+          {retouch.busy === 'upscale' ? t('Enlarging…') : t('Enlarge')}
         </button>
         <button type="button" className="button" disabled={!canRestore || busy} onClick={restore}>
-          Undo last change
+          {t('Undo last change')}
         </button>
       </div>
       {retouch.error && (
         <p className="hint hint-error" role="alert">
-          {retouch.error}
+          {t(retouch.error)}
         </p>
       )}
     </div>

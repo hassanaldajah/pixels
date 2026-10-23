@@ -54,6 +54,9 @@ notice; check the `.sha256` file next to the download instead.
 - **Viewport**: a WebGL 2 canvas with tiled textures, smooth 10%-1000% zoom (wheel, pinch,
   keyboard), pan (space-drag or middle mouse), pixel grid above 800%, rulers, draggable snapping
   guides, rule-of-thirds and custom grids, a mini-map, and a cursor read-out.
+- **Arabic and English**: press the **ع** button in the top bar for a full Arabic interface (Modern Standard
+  Arabic, right to left, with a free Arabic font), including the user guide and the security messages.
+  The choice is remembered. Every text has a test that checks it is translated.
 - **Workspace**: glass panels, a command palette (`Ctrl K`), a full shortcut map (`?`), Studio
   Dark and Light Studio themes with a shader-based wipe between them, resizable and collapsible
   panels, a job queue with live progress over WebSocket, and an opening animation.

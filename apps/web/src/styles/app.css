@@ -2222,3 +2222,101 @@ kbd,
   stroke-dasharray: 6 4;
   vector-effect: non-scaling-stroke;
 }
+
+/* ---------------------------------------------------------------- Arabic: right to left
+   The page direction comes from the language (see src/i18n). The grid of the window mirrors by itself (tool rail on the
+   right, Inspector on the left). The picture area is drawn left to right on purpose: the rulers, the pixel coordinates
+   and the overlays all assume it, and an image has no reading direction. */
+:root[dir='rtl'] .resizer-v {
+  right: auto;
+  left: calc(var(--right-w) + 10px);
+  transform: translateX(-5px);
+}
+:root[dir='rtl'] .resizer-h {
+  left: 10px;
+  right: 108px;
+}
+:root[dir='rtl'] .brand {
+  padding-right: 0;
+  padding-left: 6px;
+}
+:root[dir='rtl'] .project {
+  padding-left: 0;
+  padding-right: 12px;
+  border-left: 0;
+  border-right: 1px solid var(--px-line);
+}
+:root[dir='rtl'] .popover-right {
+  right: auto;
+  left: 0;
+}
+:root[dir='rtl'] .status-list li {
+  padding-left: 0;
+  padding-right: 18px;
+}
+:root[dir='rtl'] .status-list li::before {
+  left: auto;
+  right: 2px;
+}
+:root[dir='rtl'] .reopen {
+  right: auto;
+  left: 12px;
+}
+:root[dir='rtl'] .section-head,
+:root[dir='rtl'] .history button,
+:root[dir='rtl'] .steps,
+:root[dir='rtl'] .layer-name,
+:root[dir='rtl'] .palette-list button {
+  text-align: right;
+}
+:root[dir='rtl'] .badge {
+  margin-left: 0;
+  margin-right: auto;
+}
+:root[dir='rtl'] .guide-nav {
+  border-right: 0;
+  border-left: 1px solid var(--px-border, rgba(255, 255, 255, 0.08));
+}
+:root[dir='rtl'] .rtl-flip {
+  transform: scaleX(-1);
+}
+/* things that are numbers, keys, file names or pictures keep their left-to-right order inside Arabic text */
+:root[dir='rtl'] kbd,
+:root[dir='rtl'] .slider-number,
+:root[dir='rtl'] .slider-track,
+:root[dir='rtl'] .slider-track input,
+:root[dir='rtl'] .zoom-value,
+:root[dir='rtl'] .hud,
+:root[dir='rtl'] .anchor-grid,
+:root[dir='rtl'] .curves,
+:root[dir='rtl'] .histogram,
+:root[dir='rtl'] .swatch-strip,
+:root[dir='rtl'] .inline-fields input[type='number'],
+:root[dir='rtl'] .guide-keys dt {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+:root[dir='rtl'] .slider-number {
+  text-align: left;
+}
+:root[dir='rtl'] .gate-detail,
+:root[dir='rtl'] .facts dd,
+:root[dir='rtl'] .project,
+:root[dir='rtl'] .job-name {
+  unicode-bidi: plaintext;
+}
+/* Arabic letters join, so they are never spaced out; and they read better with a little more line height */
+:root[lang='ar'] * {
+  letter-spacing: 0 !important;
+}
+:root[lang='ar'] body {
+  line-height: 1.55;
+}
+:root[lang='ar'] .tool-label {
+  font-size: 11px;
+}
+.lang-toggle {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+}

@@ -1,4 +1,5 @@
 import { useId, useState, type ReactNode } from 'react'
+import { useT } from '../i18n'
 
 interface SliderProps {
   label: string
@@ -29,6 +30,7 @@ export function Slider({
   onPreview,
   onCommit,
 }: SliderProps) {
+  const t = useT()
   const id = useId()
   const [dragging, setDragging] = useState(false)
   const percent = ((value - min) / (max - min)) * 100
@@ -40,11 +42,11 @@ export function Slider({
   const clamp = (v: number) => Math.min(max, Math.max(min, v))
   return (
     <div className="slider" data-dragging={dragging} data-changed={value !== neutral}>
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id}>{t(label)}</label>
       <input
         className="slider-number"
         type="number"
-        aria-label={`${label} value`}
+        aria-label={`${t(label)} ${t('value')}`}
         value={Number(value.toFixed(digits))}
         min={min}
         max={max}
@@ -75,7 +77,7 @@ export function Slider({
               e.key,
             ) && onCommit(Number.parseFloat((e.target as HTMLInputElement).value))
           }
-          title="Double-click to reset"
+          title={t('Double-click to reset')}
         />
       </div>
     </div>
@@ -93,8 +95,9 @@ export function Segmented<T extends string>({
   onChange: (v: T) => void
   label: string
 }) {
+  const t = useT()
   return (
-    <div className="segmented" role="radiogroup" aria-label={label}>
+    <div className="segmented" role="radiogroup" aria-label={t(label)}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -102,11 +105,11 @@ export function Segmented<T extends string>({
           role="radio"
           aria-checked={o.value === value}
           disabled={o.disabled}
-          title={o.title}
+          title={o.title ? t(o.title) : undefined}
           data-active={o.value === value}
           onClick={() => onChange(o.value)}
         >
-          {o.label}
+          {typeof o.label === 'string' ? t(o.label) : o.label}
         </button>
       ))}
     </div>
@@ -126,23 +129,25 @@ export function Check({
   disabled?: boolean
   hint?: string
 }) {
+  const t = useT()
   return (
-    <label className="check" data-disabled={disabled} title={hint}>
+    <label className="check" data-disabled={disabled} title={hint ? t(hint) : undefined}>
       <input
         type="checkbox"
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
       />
-      <span>{label}</span>
+      <span>{t(label)}</span>
     </label>
   )
 }
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
+  const t = useT()
   return (
     <label className="field">
-      <span>{label}</span>
+      <span>{t(label)}</span>
       {children}
     </label>
   )
@@ -157,10 +162,11 @@ export function Group({
   children: ReactNode
   actions?: ReactNode
 }) {
+  const t = useT()
   return (
     <div className="group">
       <div className="group-head">
-        <h5>{title}</h5>
+        <h5>{t(title)}</h5>
         {actions}
       </div>
       {children}

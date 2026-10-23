@@ -1,6 +1,7 @@
 import Lenis from 'lenis'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useT } from '../i18n'
 import { useImage } from '../state/image'
 import { useUi } from '../state/ui'
 import { AdjustPanel } from './AdjustPanel'
@@ -32,12 +33,17 @@ function Section({
   defaultOpen?: boolean
   badge?: string
 }) {
+  const t = useT()
   const [open, setOpen] = useState(defaultOpen)
   return (
     <section className="section">
       <button type="button" className="section-head" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <Icon name={open ? 'chevronDown' : 'chevronRight'} size={14} />
-        <span>{title}</span>
+        <Icon
+          name={open ? 'chevronDown' : 'chevronRight'}
+          size={14}
+          className={open ? undefined : 'rtl-flip'}
+        />
+        <span>{t(title)}</span>
         {badge && <span className="badge">{badge}</span>}
       </button>
       <AnimatePresence initial={false}>
@@ -73,46 +79,51 @@ const asHash = (value: unknown): string | null =>
   typeof value === 'string' && /^[0-9a-f]{64}$/.test(value) ? value : null
 
 function Properties() {
+  const t = useT()
   const image = useImage((s) => s.current)
-  if (!image) return <p className="muted">Open an image to see its properties.</p>
+  if (!image) return <p className="muted">{t('Open an image to see its properties.')}</p>
   const meta = image.report.meta
   const gateMeta = image.report.gate.meta
   const stego = asStego(gateMeta.stego)
   const sha = asHash(gateMeta.sha256_original)
   return (
     <dl className="facts">
-      <dt>Name</dt>
+      <dt>{t('Name')}</dt>
       <dd title={image.name}>{image.name}</dd>
-      <dt>Size</dt>
+      <dt>{t('Size')}</dt>
       <dd>
-        {image.width.toLocaleString()} × {image.height.toLocaleString()} px
+        {image.width.toLocaleString('en-US')} × {image.height.toLocaleString('en-US')} px
       </dd>
-      <dt>Resolution</dt>
+      <dt>{t('Resolution')}</dt>
       <dd>{megapixels(image.width, image.height)}</dd>
-      <dt>Source</dt>
+      <dt>{t('Source')}</dt>
       <dd>
         {meta.source_format}
-        {meta.frames > 1 ? ` (frame 1 of ${meta.frames})` : ''}
+        {meta.frames > 1 ? ` (${t('frame 1 of {n}', { n: meta.frames })})` : ''}
       </dd>
-      <dt>Alpha</dt>
-      <dd>{image.hasAlpha ? 'Yes' : 'No'}</dd>
-      <dt>Working copy</dt>
-      <dd>8-bit sRGB PNG</dd>
-      <dt>Metadata</dt>
-      <dd>{meta.metadata_removed.length ? `Removed: ${meta.metadata_removed.join(', ')}` : 'None found'}</dd>
+      <dt>{t('Alpha')}</dt>
+      <dd>{image.hasAlpha ? t('Yes') : t('No')}</dd>
+      <dt>{t('Working copy')}</dt>
+      <dd>{t('8-bit sRGB PNG')}</dd>
+      <dt>{t('Metadata')}</dt>
+      <dd>
+        {meta.metadata_removed.length
+          ? `${t('Removed')}: ${meta.metadata_removed.join(', ')}`
+          : t('None found')}
+      </dd>
       {stego && (
         <>
-          <dt>Hidden data</dt>
+          <dt>{t('Hidden data')}</dt>
           <dd title={stego.findings.join(' ')}>
             {!stego.checked
-              ? 'Not checked'
+              ? t('Not checked')
               : stego.suspicious
                 ? stego.scrubbed
-                  ? 'Looked suspicious, low bits cleaned'
-                  : 'Looks suspicious'
+                  ? t('Looked suspicious, low bits cleaned')
+                  : t('Looks suspicious')
                 : stego.scrubbed
-                  ? 'None found, low bits cleaned'
-                  : 'None found'}
+                  ? t('None found, low bits cleaned')
+                  : t('None found')}
           </dd>
         </>
       )}
@@ -125,7 +136,7 @@ function Properties() {
               href={`https://www.virustotal.com/gui/file/${sha}`}
               target="_blank"
               rel="noopener noreferrer"
-              title="Looks the hash up on VirusTotal. The picture is not uploaded."
+              title={t('Looks the hash up on VirusTotal. The picture is not uploaded.')}
             >
               VirusTotal
             </a>
@@ -137,6 +148,7 @@ function Properties() {
 }
 
 export function RightPanel() {
+  const t = useT()
   const image = useImage((s) => s.current)
   const scroller = useRef<HTMLDivElement>(null)
   const set = useUi((s) => s.set)
@@ -153,14 +165,14 @@ export function RightPanel() {
   }, [])
 
   return (
-    <aside className="rightpanel glass" aria-label="Parameters">
+    <aside className="rightpanel glass" aria-label={t('Parameters')}>
       <div className="panel-head">
-        <span>Inspector</span>
+        <span>{t('Inspector')}</span>
         <button
           type="button"
           className="icon-button"
-          aria-label="Hide panel"
-          title="Hide panel (Ctrl+])"
+          aria-label={t('Hide panel')}
+          title={t('Hide panel (Ctrl+])')}
           onClick={() => set({ rightOpen: false })}
         >
           <Icon name="close" size={15} />
@@ -175,22 +187,24 @@ export function RightPanel() {
           {image && tool === 'lasso' && (
             <div className="tool-panel">
               <div className="tool-panel-head">
-                <h4>Lasso</h4>
+                <h4>{t('Lasso')}</h4>
               </div>
               <p className="hint">
-                Drag around the area you want to edit; let go and the shape closes. Adjust edits then apply
-                only inside it. Set the soft edge and Invert under Selection. Esc cancels a shape in progress.
+                {t(
+                  'Drag around the area you want to edit; let go and the shape closes. Adjust edits then apply only inside it. Set the soft edge and Invert under Selection. Esc cancels a shape in progress.',
+                )}
               </p>
             </div>
           )}
           {image && tool === 'move' && (
             <div className="tool-panel">
               <div className="tool-panel-head">
-                <h4>Move</h4>
+                <h4>{t('Move')}</h4>
               </div>
               <p className="hint">
-                Drag on the picture to move the selected layer (hold Shift for a straight line). Arrow keys
-                nudge it. Pick the layer first in Layers.
+                {t(
+                  'Drag on the picture to move the selected layer (hold Shift for a straight line). Arrow keys nudge it. Pick the layer first in Layers.',
+                )}
               </p>
             </div>
           )}
@@ -206,19 +220,19 @@ export function RightPanel() {
             {image ? (
               <Histogram data={image.histogram} />
             ) : (
-              <p className="muted">Shown once an image is open.</p>
+              <p className="muted">{t('Shown once an image is open.')}</p>
             )}
           </Section>
           <Section title="Security report">
             {image ? (
               <>
                 <p className="verdict">
-                  <Icon name="shield" size={15} /> {image.report.gate.verdict}
+                  <Icon name="shield" size={15} /> {t(image.report.gate.verdict)}
                 </p>
                 <GateSteps steps={image.report.gate.steps} />
               </>
             ) : (
-              <p className="muted">Every file is checked on the backend before it is shown.</p>
+              <p className="muted">{t('Every file is checked on the backend before it is shown.')}</p>
             )}
           </Section>
           <Section title="Local adjustments" defaultOpen={false}>

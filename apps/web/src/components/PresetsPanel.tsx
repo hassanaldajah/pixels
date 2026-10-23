@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { RejectionError } from '../api/client'
 import { defaultExportOptions, exportIcons, exportSizes, runBatch, saveBlob, type Recipe } from '../api/edit'
 import { useCapabilities } from '../api/queries'
+import { useT } from '../i18n'
 import { committedState, displayedState } from '../state/edit'
 import { useImage } from '../state/image'
 import { useJobs } from '../state/jobs'
@@ -36,6 +37,7 @@ const storeRecipes = (list: Recipe[]) => {
 }
 
 function useRun() {
+  const t = useT()
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const run = async (work: () => Promise<{ blob: Blob; filename: string }>) => {
@@ -44,9 +46,15 @@ function useRun() {
     try {
       const { blob, filename } = await work()
       saveBlob(blob, filename)
-      setMessage({ kind: 'ok', text: `Saved ${filename} (${(blob.size / 1024 / 1024).toFixed(2)} MB)` })
+      setMessage({
+        kind: 'ok',
+        text: t('Saved {name} ({mb} MB)', { name: filename, mb: (blob.size / 1024 / 1024).toFixed(2) }),
+      })
     } catch (e) {
-      setMessage({ kind: 'error', text: e instanceof RejectionError ? e.message : 'The export failed.' })
+      setMessage({
+        kind: 'error',
+        text: e instanceof RejectionError ? t(e.message) : t('The export failed.'),
+      })
     } finally {
       setBusy(false)
     }
@@ -62,6 +70,7 @@ const Message = ({ m }: { m: ReturnType<typeof useRun>['message'] }) =>
   )
 
 function Icons() {
+  const t = useT()
   const caps = useCapabilities()
   const image = useImage((s) => s.current)
   const { busy, message, run } = useRun()
@@ -73,13 +82,14 @@ function Icons() {
     <>
       <Group title="App icon set">
         <p className="hint">
-          Builds every size from your picture (made square first). Use a 1024 px or larger source for the
-          sharpest result.
+          {t(
+            'Builds every size from your picture (made square first). Use a 1024 px or larger source for the sharpest result.',
+          )}
         </p>
         {(caps.data?.platforms ?? Object.keys(PLATFORM_LABELS)).map((p) => (
           <Check
             key={p}
-            label={PLATFORM_LABELS[p] ?? p}
+            label={t(PLATFORM_LABELS[p] ?? p)}
             checked={platforms.includes(p)}
             onChange={() => toggle(p)}
           />
@@ -100,7 +110,7 @@ function Icons() {
             type="color"
             value={background}
             onChange={(e) => setBackground(e.target.value)}
-            aria-label="Icon background colour"
+            aria-label={t('Icon background colour')}
           />
         </Field>
       </Group>
@@ -112,7 +122,7 @@ function Icons() {
           image && void run(() => exportIcons(image.id, displayedState(), { platforms, background, fit }))
         }
       >
-        <Icon name="export" size={15} /> {busy ? 'Building…' : 'Download icon set (.zip)'}
+        <Icon name="export" size={15} /> {busy ? t('Building…') : t('Download icon set (.zip)')}
       </button>
       <Message m={message} />
     </>
@@ -120,6 +130,7 @@ function Icons() {
 }
 
 function Sizes() {
+  const t = useT()
   const caps = useCapabilities()
   const image = useImage((s) => s.current)
   const { busy, message, run } = useRun()
@@ -137,11 +148,11 @@ function Sizes() {
   return (
     <>
       {groups.map(([group, items]) => (
-        <Group key={group} title={group}>
+        <Group key={group} title={t(group)}>
           {items.map((p) => (
             <Check
               key={p.id}
-              label={`${p.label} · ${p.w} × ${p.h}`}
+              label={`${t(p.label)} · ${p.w} × ${p.h}`}
               checked={ids.includes(p.id)}
               onChange={(on) => setIds((l) => (on ? [...l, p.id] : l.filter((x) => x !== p.id)))}
             />
@@ -160,7 +171,7 @@ function Sizes() {
         />
         {mode === 'cover' ? (
           <>
-            <Field label={`Focus left-right ${Math.round(focusX * 100)}%`}>
+            <Field label={`${t('Focus left-right')} ${Math.round(focusX * 100)}%`}>
               <input
                 type="range"
                 min={0}
@@ -170,7 +181,7 @@ function Sizes() {
                 onChange={(e) => setFocusX(Number(e.target.value))}
               />
             </Field>
-            <Field label={`Focus top-bottom ${Math.round(focusY * 100)}%`}>
+            <Field label={`${t('Focus top-bottom')} ${Math.round(focusY * 100)}%`}>
               <input
                 type="range"
                 min={0}
@@ -187,7 +198,7 @@ function Sizes() {
               type="color"
               value={background}
               onChange={(e) => setBackground(e.target.value)}
-              aria-label="Bar colour"
+              aria-label={t('Bar colour')}
             />
           </Field>
         )}
@@ -223,7 +234,11 @@ function Sizes() {
         }
       >
         <Icon name="export" size={15} />{' '}
-        {busy ? 'Rendering…' : `Download ${ids.length || ''} size${ids.length === 1 ? '' : 's'} (.zip)`}
+        {busy
+          ? t('Rendering…')
+          : ids.length === 0
+            ? t('Download sizes (.zip)')
+            : t('Download {n} sizes (.zip)', { n: ids.length })}
       </button>
       <Message m={message} />
     </>
@@ -231,6 +246,7 @@ function Sizes() {
 }
 
 function Batch() {
+  const t = useT()
   const jobs = useJobs((s) => s.jobs)
   const { busy, message, run } = useRun()
   const sessionImages = useMemo(() => jobs.filter((j) => j.status === 'done' && j.image_id), [jobs])
@@ -280,8 +296,9 @@ function Batch() {
     <>
       <Group title="1. Recipe">
         <p className="hint">
-          A recipe remembers the current adjustments, any rotation or flip, a layout and the export format.
-          Rotation and flips come from your edit stack; crops are not saved because they only fit one picture.
+          {t(
+            'A recipe remembers the current adjustments, any rotation or flip, a layout and the export format. Rotation and flips come from your edit stack; crops are not saved because they only fit one picture.',
+          )}
         </p>
         <Field label="Name">
           <input type="text" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
@@ -336,13 +353,13 @@ function Batch() {
           <input type="text" value={suffix} maxLength={40} onChange={(e) => setSuffix(e.target.value)} />
         </Field>
         <button type="button" className="button" onClick={save}>
-          Save recipe
+          {t('Save recipe')}
         </button>
       </Group>
       <Group title="2. Apply to images">
         <Field label="Saved recipes">
           <select value={selected} onChange={(e) => setSelected(e.target.value)}>
-            <option value="">Choose…</option>
+            <option value="">{t('Choose…')}</option>
             {recipes.map((r) => (
               <option key={r.name} value={r.name}>
                 {r.name}
@@ -352,8 +369,9 @@ function Batch() {
         </Field>
         {sessionImages.length === 0 ? (
           <p className="hint">
-            Open several images first (select many files, or drop a folder's files). Each one passes the
-            Security Gate, then appears here.
+            {t(
+              "Open several images first (select many files, or drop a folder's files). Each one passes the Security Gate, then appears here.",
+            )}
           </p>
         ) : (
           sessionImages.map((j) => (
@@ -381,25 +399,26 @@ function Batch() {
               chosen && void run(() => runBatch(ids, chosen, crypto.randomUUID().replaceAll('-', '')))
             }
           >
-            {busy ? 'Processing…' : `Run on ${ids.length} image${ids.length === 1 ? '' : 's'}`}
+            {busy ? t('Processing…') : t('Run on {n} images', { n: ids.length })}
           </button>
           <button type="button" className="button" disabled={!chosen} onClick={remove}>
-            Delete recipe
+            {t('Delete recipe')}
           </button>
         </div>
         <Message m={message} />
-        <p className="hint">The zip includes report.json with the security verdict for every file.</p>
+        <p className="hint">{t('The zip includes report.json with the security verdict for every file.')}</p>
       </Group>
     </>
   )
 }
 
 export function PresetsPanel() {
+  const t = useT()
   const [tab, setTab] = useState<Tab>('icons')
   return (
     <div className="tool-panel">
       <div className="tool-panel-head">
-        <h4>Presets & batch</h4>
+        <h4>{t('Presets & batch')}</h4>
       </div>
       <Segmented
         label="Preset type"
@@ -414,7 +433,7 @@ export function PresetsPanel() {
       {tab === 'icons' && <Icons />}
       {tab === 'sizes' && <Sizes />}
       {tab === 'batch' && <Batch />}
-      <p className="hint">Device mockups (a screenshot inside a phone or laptop frame) are planned.</p>
+      <p className="hint">{t('Device mockups (a screenshot inside a phone or laptop frame) are planned.')}</p>
     </div>
   )
 }

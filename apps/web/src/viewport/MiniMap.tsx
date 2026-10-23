@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useT } from '../i18n'
 import { useImage } from '../state/image'
 import { useView } from '../state/view'
 import { getLiveView, subscribeLiveView } from './liveView'
@@ -6,6 +7,7 @@ import { getLiveView, subscribeLiveView } from './liveView'
 const WIDTH = 150
 
 export function MiniMap() {
+  const t = useT()
   const image = useImage((s) => s.current)
   const frame = useRef<HTMLDivElement>(null)
   const [rect, setRect] = useState({ x: 0, y: 0, w: 1, h: 1 })
@@ -66,7 +68,7 @@ export function MiniMap() {
         e.stopPropagation()
         dragging.current = false
       }}
-      aria-label="Mini-map: drag to move the view"
+      aria-label={t('Mini-map: drag to move the view')}
     >
       <div ref={frame} className="minimap-frame">
         <img src={image.thumbUrl} alt="" draggable={false} />

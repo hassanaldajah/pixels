@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useT } from '../i18n'
 import { HSL_BANDS, defaultAdjust, isIdentityAdjust, type Adjust } from '../engine/types'
 import { committedState, useDisplayedState, useEdit } from '../state/edit'
 import { hslSwatches } from '../tokens'
@@ -64,19 +65,20 @@ function Row(props: {
 }
 
 function Hsl() {
+  const t = useT()
   const [band, setBand] = useState(0)
   const adjust = useDisplayedState().adjust
   const name = HSL_BANDS[band] as string
   return (
     <>
-      <div className="swatches" role="tablist" aria-label="Colour band">
+      <div className="swatches" role="tablist" aria-label={t('Colour band')}>
         {HSL_BANDS.map((b, i) => (
           <button
             key={b}
             type="button"
             role="tab"
             aria-selected={band === i}
-            title={b}
+            title={t(b)}
             data-active={band === i}
             data-edited={adjust.hsl.hue[i] !== 0 || adjust.hsl.sat[i] !== 0 || adjust.hsl.lum[i] !== 0}
             style={{ background: hslSwatches[i] }}
@@ -108,12 +110,13 @@ function Curves() {
 }
 
 export function AdjustPanel() {
+  const t = useT()
   const adjust = useDisplayedState().adjust
   const identity = isIdentityAdjust(adjust)
   return (
     <div className="tool-panel">
       <div className="tool-panel-head">
-        <h4>Adjust</h4>
+        <h4>{t('Adjust')}</h4>
         <button
           type="button"
           className="link-button"
@@ -122,7 +125,7 @@ export function AdjustPanel() {
             useEdit.getState().commit('Reset adjustments', { ...committedState(), adjust: defaultAdjust() })
           }
         >
-          Reset all
+          {t('Reset all')}
         </button>
       </div>
       <Group title="Light">
@@ -183,8 +186,9 @@ export function AdjustPanel() {
         />
       </Group>
       <p className="hint">
-        Radii are in image pixels. On a downscaled preview they are scaled to match, so the export looks the
-        same.
+        {t(
+          'Radii are in image pixels. On a downscaled preview they are scaled to match, so the export looks the same.',
+        )}
       </p>
     </div>
   )

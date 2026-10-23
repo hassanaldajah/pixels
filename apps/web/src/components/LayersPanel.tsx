@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { BLEND_MODES, MAX_LAYERS, type BlendMode, type Layer, type LayerMask } from '../engine/types'
+import { useT } from '../i18n'
 import { useDisplayedState } from '../state/edit'
 import { useImage } from '../state/image'
 import { commitLayer, moveLayer, previewLayer, removeLayer, useLayerPictures } from '../state/layers'
@@ -31,20 +32,22 @@ const BLEND_LABEL: Record<BlendMode, string> = {
 
 /** The Layers section of the inspector. The layers themselves are part of the EditState (so undo, history and projects cover them). */
 export function LayersPanel() {
+  const t = useT()
   const image = useImage((s) => s.current)
   const layers = useDisplayedState().layers ?? []
   const { selected, select, add, error, clearError } = useLayerPictures()
   const input = useRef<HTMLInputElement>(null)
   const current = layers.find((l) => l.id === selected) ?? null
   const picture = useLayerPictures((s) => (current ? s.pictures[current.image_id] : undefined))
-  if (!image) return <p className="muted">Open an image to add layers.</p>
+  if (!image) return <p className="muted">{t('Open an image to add layers.')}</p>
   const top = [...layers].reverse() // the top layer is listed first
 
   return (
     <div className="layers-panel">
       <p className="hint">
-        Place another picture above this one. Every layer picture goes through the Security Gate, and the
-        whole stack is saved in the history and in projects.
+        {t(
+          'Place another picture above this one. Every layer picture goes through the Security Gate, and the whole stack is saved in the history and in projects.',
+        )}
       </p>
       <input
         ref={input}
@@ -63,23 +66,27 @@ export function LayersPanel() {
         disabled={layers.length >= MAX_LAYERS}
         onClick={() => input.current?.click()}
       >
-        <Icon name="plus" size={14} /> Add layer
+        <Icon name="plus" size={14} /> {t('Add layer')}
       </button>
       {error && (
         <p className="hint hint-error" role="alert" onClick={clearError}>
-          {error}
+          {t(error)}
         </p>
       )}
       {layers.length === 0 ? (
-        <p className="muted">No layers yet.</p>
+        <p className="muted">{t('No layers yet.')}</p>
       ) : (
-        <ul className="layer-list" aria-label="Layers, top first">
+        <ul className="layer-list" aria-label={t('Layers, top first')}>
           {top.map((layer) => (
             <li key={layer.id} data-active={layer.id === selected} data-hidden={!layer.visible}>
               <button
                 type="button"
                 className="icon-button"
-                aria-label={layer.visible ? `Hide ${layer.name}` : `Show ${layer.name}`}
+                aria-label={
+                  layer.visible
+                    ? t('Hide {name}', { name: layer.name })
+                    : t('Show {name}', { name: layer.name })
+                }
                 aria-pressed={layer.visible}
                 onClick={() =>
                   commitLayer(layer.visible ? 'Hide layer' : 'Show layer', layer.id, {
@@ -100,7 +107,7 @@ export function LayersPanel() {
               <button
                 type="button"
                 className="icon-button"
-                aria-label={`Move ${layer.name} up`}
+                aria-label={t('Move {name} up', { name: layer.name })}
                 onClick={() => moveLayer(layer.id, 'up')}
               >
                 <Icon name="chevronDown" size={14} className="flip-v" />
@@ -108,7 +115,7 @@ export function LayersPanel() {
               <button
                 type="button"
                 className="icon-button"
-                aria-label={`Move ${layer.name} down`}
+                aria-label={t('Move {name} down', { name: layer.name })}
                 onClick={() => moveLayer(layer.id, 'down')}
               >
                 <Icon name="chevronDown" size={14} />
@@ -116,7 +123,7 @@ export function LayersPanel() {
               <button
                 type="button"
                 className="icon-button"
-                aria-label={`Delete ${layer.name}`}
+                aria-label={t('Delete {name}', { name: layer.name })}
                 onClick={() => removeLayer(layer.id)}
               >
                 <Icon name="trash" size={14} />
@@ -138,7 +145,7 @@ export function LayersPanel() {
             onCommit={(v) => commitLayer('Layer opacity', current.id, { opacity: v })}
           />
           <label className="field">
-            <span>Blend</span>
+            <span>{t('Blend')}</span>
             <span className="select-wrap">
               <select
                 value={current.blend}
@@ -148,7 +155,7 @@ export function LayersPanel() {
               >
                 {BLEND_MODES.map((m) => (
                   <option key={m} value={m}>
-                    {BLEND_LABEL[m]}
+                    {t(BLEND_LABEL[m])}
                   </option>
                 ))}
               </select>
@@ -185,7 +192,7 @@ export function LayersPanel() {
             onCommit={(v) => commitLayer('Move layer', current.id, { y: Math.round(v) })}
           />
           <label className="field">
-            <span>Fade</span>
+            <span>{t('Fade')}</span>
             <span className="select-wrap">
               <select
                 value={current.mask?.kind ?? 'none'}
@@ -200,9 +207,9 @@ export function LayersPanel() {
                   )
                 }}
               >
-                <option value="none">None</option>
-                <option value="linear">Linear gradient</option>
-                <option value="radial">Radial gradient</option>
+                <option value="none">{t('None')}</option>
+                <option value="linear">{t('Linear gradient')}</option>
+                <option value="radial">{t('Radial gradient')}</option>
               </select>
             </span>
           </label>

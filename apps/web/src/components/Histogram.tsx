@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useT } from '../i18n'
 import type { Histogram as Data } from '../lib/imageLoader'
 import { useUi } from '../state/ui'
 
@@ -6,6 +7,7 @@ const W = 256
 const H = 80
 
 export function Histogram({ data }: { data: Data }) {
+  const t = useT()
   const canvas = useRef<HTMLCanvasElement>(null)
   const theme = useUi((s) => s.theme)
 
@@ -58,7 +60,8 @@ export function Histogram({ data }: { data: Data }) {
       className="histogram"
       style={{ width: '100%', height: H }}
       role="img"
-      aria-label="Histogram of red, green, blue and brightness"
+      dir="ltr"
+      aria-label={t('Histogram of red, green, blue and brightness')}
     />
   )
 }

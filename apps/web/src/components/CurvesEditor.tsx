@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { curveLut } from '../engine/curves'
 import { MAX_CURVE_POINTS, type CurvePoints } from '../engine/types'
+import { useT } from '../i18n'
 
 const SIZE = 220
 const PAD = 8
@@ -26,6 +27,7 @@ interface Props {
 
 /** Click to add a point, drag to move it, double-click a point to remove it. */
 export function CurvesEditor({ channel, points, onChannel, onPreview, onCommit }: Props) {
+  const t = useT()
   const svg = useRef<SVGSVGElement>(null)
   const [active, setActive] = useState<number | null>(null)
   const lut = useMemo(() => curveLut(points), [points])
@@ -62,7 +64,7 @@ export function CurvesEditor({ channel, points, onChannel, onPreview, onCommit }
 
   return (
     <div className="curves">
-      <div className="segmented" role="radiogroup" aria-label="Curve channel">
+      <div className="segmented" role="radiogroup" aria-label={t('Curve channel')}>
         {CHANNELS.map((c) => (
           <button
             key={c}
@@ -81,7 +83,7 @@ export function CurvesEditor({ channel, points, onChannel, onPreview, onCommit }
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         className="curves-plot"
         role="application"
-        aria-label={`${channel} tone curve editor`}
+        aria-label={t('{channel} tone curve editor', { channel })}
         onPointerDown={(e) => {
           if (e.button !== 0) return
           const [x, y] = local(e)
@@ -137,7 +139,7 @@ export function CurvesEditor({ channel, points, onChannel, onPreview, onCommit }
           )
         })}
       </svg>
-      <p className="hint">Click to add a point · drag to move · double-click a point to remove it</p>
+      <p className="hint">{t('Click to add a point · drag to move · double-click a point to remove it')}</p>
     </div>
   )
 }

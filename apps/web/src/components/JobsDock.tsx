@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react'
+import { useT } from '../i18n'
 import { useJobs } from '../state/jobs'
 import { useUi } from '../state/ui'
 import { Icon } from './Icon'
@@ -12,10 +13,10 @@ const STATUS_LABEL = {
 } as const
 
 function JobQueue() {
+  const t = useT()
   const jobs = useJobs((s) => s.jobs)
   const clear = useJobs((s) => s.clearFinished)
-  if (jobs.length === 0)
-    return <p className="muted">Imports and, later, AI jobs appear here with live progress.</p>
+  if (jobs.length === 0) return <p className="muted">{t('Imports appear here with live progress.')}</p>
   return (
     <div className="jobs">
       <ul>
@@ -33,7 +34,7 @@ function JobQueue() {
                 <span className="job-name" title={job.name}>
                   {job.name}
                 </span>
-                <span className="job-status">{job.error ?? job.label ?? STATUS_LABEL[job.status]}</span>
+                <span className="job-status">{t(job.error ?? job.label ?? STATUS_LABEL[job.status])}</span>
               </div>
               <div
                 className="bar"
@@ -49,13 +50,14 @@ function JobQueue() {
         </AnimatePresence>
       </ul>
       <button type="button" className="link-button" onClick={clear}>
-        Clear finished
+        {t('Clear finished')}
       </button>
     </div>
   )
 }
 
 export function JobsDock() {
+  const t = useT()
   const open = useUi((s) => s.dockOpen)
   const set = useUi((s) => s.set)
   const jobs = useJobs((s) => s.jobs)
@@ -70,14 +72,18 @@ export function JobsDock() {
           className="section-head"
           aria-expanded={open}
           onClick={() => set({ dockOpen: !open })}
-          title="Toggle activity (Ctrl+J)"
+          title={t('Toggle activity (Ctrl+J)')}
         >
-          <Icon name={open ? 'chevronDown' : 'chevronRight'} size={14} />
-          <span>Activity</span>
+          <Icon
+            name={open ? 'chevronDown' : 'chevronRight'}
+            size={14}
+            className={open ? undefined : 'rtl-flip'}
+          />
+          <span>{t('Activity')}</span>
         </button>
         <span className="dock-meta">
-          {active > 0 ? `${active} running` : `${jobs.length} recent`}
-          <span className="dot" data-state={socket} title={`Live updates: ${socket}`} />
+          {active > 0 ? t('{n} running', { n: active }) : t('{n} recent', { n: jobs.length })}
+          <span className="dot" data-state={socket} title={`${t('Live updates')}: ${socket}`} />
         </span>
       </div>
       {open && (

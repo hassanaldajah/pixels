@@ -3,6 +3,7 @@ import { detectHorizon } from '../api/edit'
 import { RejectionError } from '../api/client'
 import { outputSize } from '../engine/geometry'
 import type { Anchor, GeoOp } from '../engine/types'
+import { useT } from '../i18n'
 import { committedState, useEdit } from '../state/edit'
 import { useImage } from '../state/image'
 import { outputColors } from '../tokens'
@@ -40,6 +41,7 @@ const previewGeometry = (op: GeoOp | null) => {
 const ANCHORS: Anchor[] = ['tl', 'tc', 'tr', 'ml', 'c', 'mr', 'bl', 'bc', 'br']
 
 function Crop() {
+  const tr = useT()
   const size = useShownSize()
   const t = useTransform()
   const ratio = resolveRatio(t.ratioId, t.customRatio, t.landscape, size.w, size.h)
@@ -81,7 +83,7 @@ function Crop() {
               data-active={t.ratioId === r.id}
               onClick={() => choose(r.id)}
             >
-              {r.label}
+              {tr(r.label)}
             </button>
           ))}
         </div>
@@ -91,7 +93,7 @@ function Crop() {
               type="number"
               min={1}
               value={t.customRatio[0]}
-              aria-label="Ratio width"
+              aria-label={tr('Ratio width')}
               onChange={(e) =>
                 t.set({ customRatio: [Math.max(1, Number(e.target.value)), t.customRatio[1]] })
               }
@@ -101,7 +103,7 @@ function Crop() {
               type="number"
               min={1}
               value={t.customRatio[1]}
-              aria-label="Ratio height"
+              aria-label={tr('Ratio height')}
               onChange={(e) =>
                 t.set({ customRatio: [t.customRatio[0], Math.max(1, Number(e.target.value))] })
               }
@@ -116,7 +118,7 @@ function Crop() {
             window.setTimeout(() => choose(t.ratioId), 0)
           }}
         >
-          Swap orientation
+          {tr('Swap orientation')}
         </button>
       </Group>
       <Group title="Size">
@@ -158,7 +160,7 @@ function Crop() {
           </Field>
         </div>
         <p className="hint">
-          Position {crop.x}, {crop.y} · image {size.w} × {size.h} px
+          {tr('Position {x}, {y} · image {w} × {h} px', { x: crop.x, y: crop.y, w: size.w, h: size.h })}
         </p>
       </Group>
       <div className="actions">
@@ -168,10 +170,10 @@ function Crop() {
           onClick={apply}
           disabled={crop.w === size.w && crop.h === size.h}
         >
-          Apply crop
+          {tr('Apply crop')}
         </button>
         <button type="button" className="button" onClick={() => t.set({ crop: null, ratioId: 'free' })}>
-          Reset
+          {tr('Reset')}
         </button>
       </div>
     </>
@@ -179,6 +181,7 @@ function Crop() {
 }
 
 function Rotate() {
+  const tr = useT()
   const image = useImage((s) => s.current)
   const t = useTransform()
   const [angle, setAngle] = useState(0)
@@ -196,18 +199,18 @@ function Rotate() {
       const shown = committedState().geometry.length === 0
       if (!shown)
         setMessage(
-          'Auto-detect measures the original photo: undo your geometry edits first for best results.',
+          tr('Auto-detect measures the original photo: undo your geometry edits first for best results.'),
         )
       const result = await detectHorizon(image.id)
       if (Math.abs(result.angle) < 0.05 || result.confidence < 0.3)
-        setMessage('No clear horizon was found. Draw one by hand instead.')
+        setMessage(tr('No clear horizon was found. Draw one by hand instead.'))
       else
         addGeometry(`Auto straighten ${result.angle > 0 ? '+' : ''}${result.angle.toFixed(1)}°`, {
           type: 'straighten',
           angle: result.angle,
         })
     } catch (error) {
-      setMessage(error instanceof RejectionError ? error.message : 'Horizon detection failed.')
+      setMessage(error instanceof RejectionError ? tr(error.message) : tr('Horizon detection failed.'))
     } finally {
       setBusy(false)
     }
@@ -235,7 +238,7 @@ function Rotate() {
             type="button"
             className="button"
             onClick={() => addGeometry('Rotate 90° left', { type: 'rotate90', turns: 3 })}
-            title="Rotate 90° counter-clockwise"
+            title={tr('Rotate 90° counter-clockwise')}
           >
             ↺ 90°
           </button>
@@ -243,7 +246,7 @@ function Rotate() {
             type="button"
             className="button"
             onClick={() => addGeometry('Rotate 90° right', { type: 'rotate90', turns: 1 })}
-            title="Rotate 90° clockwise"
+            title={tr('Rotate 90° clockwise')}
           >
             ↻ 90°
           </button>
@@ -259,14 +262,14 @@ function Rotate() {
             className="button"
             onClick={() => addGeometry('Flip horizontal', { type: 'flip', axis: 'h' })}
           >
-            ⇋ Flip H
+            ⇋ {tr('Flip H')}
           </button>
           <button
             type="button"
             className="button"
             onClick={() => addGeometry('Flip vertical', { type: 'flip', axis: 'v' })}
           >
-            ⇅ Flip V
+            ⇅ {tr('Flip V')}
           </button>
         </div>
       </Group>
@@ -292,7 +295,7 @@ function Rotate() {
         />
         <div className="button-row">
           <button type="button" className="button" onClick={() => void auto()} disabled={busy}>
-            {busy ? 'Looking…' : 'Auto-detect horizon'}
+            {busy ? tr('Looking…') : tr('Auto-detect horizon')}
           </button>
           <button
             type="button"
@@ -300,7 +303,7 @@ function Rotate() {
             data-active={t.drawingHorizon}
             onClick={() => t.set({ drawingHorizon: !t.drawingHorizon, horizon: null })}
           >
-            <Icon name="ruler" size={15} /> Draw horizon
+            <Icon name="ruler" size={15} /> {tr('Draw horizon')}
           </button>
         </div>
         {drawnAngle !== null && (
@@ -315,7 +318,7 @@ function Rotate() {
               t.set({ horizon: null, drawingHorizon: false })
             }}
           >
-            Level the line ({drawnAngle > 0 ? '+' : ''}
+            {tr('Level the line')} ({drawnAngle > 0 ? '+' : ''}
             {drawnAngle}°)
           </button>
         )}
@@ -325,8 +328,9 @@ function Rotate() {
           </p>
         )}
         <p className="hint">
-          Straightening keeps the largest rectangle inside the rotated picture. Use Free rotate to keep
-          everything.
+          {tr(
+            'Straightening keeps the largest rectangle inside the rotated picture. Use Free rotate to keep everything.',
+          )}
         </p>
       </Group>
       <Group title="Free rotate (grows the canvas)">
@@ -395,6 +399,7 @@ function Rotate() {
 }
 
 function Perspective() {
+  const tr = useT()
   const size = useShownSize()
   const t = useTransform()
   const quad = t.quad ?? ([[0, 0], [size.w, 0], [size.w, size.h], [0, size.h]] as [number, number][]) // prettier-ignore
@@ -403,11 +408,12 @@ function Perspective() {
     <>
       <Group title="Four-point perspective">
         <p className="hint">
-          Drag the four corner handles on the picture to where each corner should end up. Use it to straighten
-          buildings or documents photographed at an angle.
+          {tr(
+            'Drag the four corner handles on the picture to where each corner should end up. Use it to straighten buildings or documents photographed at an angle.',
+          )}
         </p>
         <p className="hint">
-          The preview updates as you drag. Areas outside the old picture become transparent.
+          {tr('The preview updates as you drag. Areas outside the old picture become transparent.')}
         </p>
       </Group>
       <div className="actions">
@@ -424,7 +430,7 @@ function Perspective() {
             previewGeometry(null)
           }}
         >
-          Apply
+          {tr('Apply')}
         </button>
         <button
           type="button"
@@ -435,7 +441,7 @@ function Perspective() {
             previewGeometry(null)
           }}
         >
-          Reset corners
+          {tr('Reset corners')}
         </button>
       </div>
     </>
@@ -443,6 +449,7 @@ function Perspective() {
 }
 
 function CanvasSize() {
+  const tr = useT()
   const size = useShownSize()
   const [w, setW] = useState(size.w)
   const [h, setH] = useState(size.h)
@@ -488,9 +495,9 @@ function CanvasSize() {
         </div>
         <label className="check">
           <input type="checkbox" checked={lock} onChange={(e) => setLock(e.target.checked)} />
-          <span>Keep proportions</span>
+          <span>{tr('Keep proportions')}</span>
         </label>
-        <div className="anchor-grid" role="radiogroup" aria-label="Anchor">
+        <div className="anchor-grid" role="radiogroup" aria-label={tr('Anchor')}>
           {ANCHORS.map((a) => (
             <button
               key={a}
@@ -499,7 +506,7 @@ function CanvasSize() {
               aria-checked={anchor === a}
               data-active={anchor === a}
               onClick={() => setAnchor(a)}
-              title={`Anchor ${a}`}
+              title={tr('Anchor {a}', { a })}
             />
           ))}
         </div>
@@ -516,11 +523,11 @@ function CanvasSize() {
           <input
             type="color"
             value={colour}
-            aria-label="Fill colour"
+            aria-label={tr('Fill colour')}
             onChange={(e) => setColour(e.target.value)}
           />
         )}
-        <p className="hint">Larger than the picture adds space around it; smaller crops it.</p>
+        <p className="hint">{tr('Larger than the picture adds space around it; smaller crops it.')}</p>
       </Group>
       <div className="actions">
         <button
@@ -537,16 +544,16 @@ function CanvasSize() {
             })
           }
         >
-          Apply canvas size
+          {tr('Apply canvas size')}
         </button>
         <button
           type="button"
           className="button"
           disabled={w === size.w && h === size.h}
           onClick={() => addGeometry(`Resize ${w} × ${h}`, { type: 'resize', w, h })}
-          title="Scale the picture itself to this size"
+          title={tr('Scale the picture itself to this size')}
         >
-          Resize picture
+          {tr('Resize picture')}
         </button>
       </div>
     </>
@@ -554,6 +561,7 @@ function CanvasSize() {
 }
 
 export function TransformPanel() {
+  const tr = useT()
   const tab = useTransform((s) => s.tab)
   const set = useTransform((s) => s.set)
   const tabs: { value: TransformTab; label: string }[] = [
@@ -565,7 +573,7 @@ export function TransformPanel() {
   return (
     <div className="tool-panel">
       <div className="tool-panel-head">
-        <h4>Transform</h4>
+        <h4>{tr('Transform')}</h4>
       </div>
       <Segmented
         label="Transform mode"

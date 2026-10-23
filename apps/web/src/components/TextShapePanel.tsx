@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useT } from '../i18n'
 import { outputColors } from '../tokens'
 import { makeShapeFile, makeTextFile, type FontKind, type ShapeKind } from '../lib/makeShape'
 import { useImage } from '../state/image'
@@ -9,6 +10,7 @@ const hexOk = (v: string) => /^#[0-9a-fA-F]{6}$/.test(v)
 
 /** Add text or a simple shape as a new layer (move, blend and fade it in Layers). */
 export function TextShapePanel() {
+  const t = useT()
   const image = useImage((s) => s.current)
   const add = useLayerPictures((s) => s.add)
   const [text, setText] = useState('Your text')
@@ -22,7 +24,7 @@ export function TextShapePanel() {
   const [shapeH, setShapeH] = useState(200)
   const [detail, setDetail] = useState(24)
   const [busy, setBusy] = useState(false)
-  if (!image) return <p className="muted">Open an image to add text or shapes.</p>
+  if (!image) return <p className="muted">{t('Open an image to add text or shapes.')}</p>
   const colour = hexOk(color) ? color : outputColors.white
 
   const run = async (make: () => Promise<File>) => {
@@ -37,27 +39,28 @@ export function TextShapePanel() {
   return (
     <div className="layers-panel">
       <p className="hint">
-        Text and shapes become layers. After adding one, move it, fade it or change how it blends in the
-        Layers section.
+        {t(
+          'Text and shapes become layers. After adding one, move it, fade it or change how it blends in the Layers section.',
+        )}
       </p>
       <label className="field">
-        <span>Text</span>
+        <span>{t('Text')}</span>
         <textarea
           className="text-input"
           rows={2}
           maxLength={400}
           value={text}
-          aria-label="Text"
+          aria-label={t('Text')}
           onChange={(e) => setText(e.target.value)}
         />
       </label>
       <label className="field">
-        <span>Font</span>
+        <span>{t('Font')}</span>
         <span className="select-wrap">
           <select value={font} onChange={(e) => setFont(e.target.value as FontKind)}>
-            <option value="sans">Sans-serif</option>
-            <option value="serif">Serif</option>
-            <option value="mono">Monospace</option>
+            <option value="sans">{t('Sans-serif')}</option>
+            <option value="serif">{t('Serif')}</option>
+            <option value="mono">{t('Monospace')}</option>
           </select>
         </span>
       </label>
@@ -72,8 +75,13 @@ export function TextShapePanel() {
         onCommit={setSize}
       />
       <label className="field">
-        <span>Colour</span>
-        <input type="color" value={colour} aria-label="Colour" onChange={(e) => setColor(e.target.value)} />
+        <span>{t('Colour')}</span>
+        <input
+          type="color"
+          value={colour}
+          aria-label={t('Colour')}
+          onChange={(e) => setColor(e.target.value)}
+        />
       </label>
       <Check label="Bold" checked={bold} onChange={setBold} />
       <Check label="Italic" checked={italic} onChange={setItalic} />
@@ -83,16 +91,16 @@ export function TextShapePanel() {
         disabled={busy || text.trim() === ''}
         onClick={() => void run(() => makeTextFile({ text, font, size, color: colour, bold, italic }))}
       >
-        Add text layer
+        {t('Add text layer')}
       </button>
       <hr />
       <label className="field">
-        <span>Shape</span>
+        <span>{t('Shape')}</span>
         <span className="select-wrap">
           <select value={shape} onChange={(e) => setShape(e.target.value as ShapeKind)}>
-            <option value="rectangle">Rectangle</option>
-            <option value="ellipse">Ellipse</option>
-            <option value="line">Line</option>
+            <option value="rectangle">{t('Rectangle')}</option>
+            <option value="ellipse">{t('Ellipse')}</option>
+            <option value="line">{t('Line')}</option>
           </select>
         </span>
       </label>
@@ -146,7 +154,7 @@ export function TextShapePanel() {
           )
         }
       >
-        Add shape layer
+        {t('Add shape layer')}
       </button>
     </div>
   )

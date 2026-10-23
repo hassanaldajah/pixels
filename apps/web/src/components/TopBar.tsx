@@ -1,4 +1,5 @@
 import { useSecurityStatus } from '../api/queries'
+import { useLang, useT } from '../i18n'
 import { AppIcon, Wordmark } from '../brand/Logo'
 import { QUALITY, useUi, type Quality } from '../state/ui'
 import { saveBlob, saveProject } from '../api/edit'
@@ -10,14 +11,32 @@ import { toggleTheme, openFilePicker } from '../lib/shortcuts'
 import { Icon } from './Icon'
 import { Popover } from './Popover'
 
+function LanguageToggle() {
+  const lang = useLang((s) => s.lang)
+  const setLang = useLang((s) => s.setLang)
+  return (
+    <button
+      type="button"
+      className="icon-button lang-toggle"
+      lang={lang === 'ar' ? 'en' : 'ar'}
+      aria-label={lang === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}
+      title={lang === 'ar' ? 'English' : 'العربية'}
+      onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
+    >
+      {lang === 'ar' ? 'EN' : 'ع'}
+    </button>
+  )
+}
+
 function ThemeToggle() {
+  const t = useT()
   const theme = useUi((s) => s.theme)
   return (
     <button
       type="button"
       className="icon-button"
-      aria-label={`Switch to ${theme === 'dark' ? 'Light Studio' : 'Studio Dark'}`}
-      title="Switch theme (Ctrl+Shift+L)"
+      aria-label={t(theme === 'dark' ? 'Switch to Light Studio' : 'Switch to Studio Dark')}
+      title={t('Switch theme (Ctrl+Shift+L)')}
       onClick={(e) => toggleTheme({ x: e.clientX, y: e.clientY })}
     >
       <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
@@ -26,19 +45,20 @@ function ThemeToggle() {
 }
 
 function QualitySelect() {
+  const t = useT()
   const quality = useUi((s) => s.quality)
   const set = useUi((s) => s.set)
   return (
-    <label className="select-wrap" title={QUALITY[quality].hint}>
-      <span className="sr-only">Quality</span>
+    <label className="select-wrap" title={t(QUALITY[quality].hint)}>
+      <span className="sr-only">{t('Quality')}</span>
       <select
         value={quality}
         onChange={(e) => set({ quality: e.target.value as Quality })}
-        aria-label="Quality"
+        aria-label={t('Quality')}
       >
         {Object.entries(QUALITY).map(([id, q]) => (
           <option key={id} value={id}>
-            {q.label}
+            {t(q.label)}
           </option>
         ))}
       </select>
@@ -47,6 +67,7 @@ function QualitySelect() {
 }
 
 function SecurityIndicator() {
+  const t = useT()
   const { data, isError } = useSecurityStatus()
   const state =
     isError || !data
@@ -57,14 +78,14 @@ function SecurityIndicator() {
           ? 'partial'
           : 'full'
   const label = {
-    offline: 'Security: offline',
-    degraded: 'Security: reduced',
-    partial: 'Security checks on',
-    full: 'Security: full',
+    offline: t('Security: offline'),
+    degraded: t('Security: reduced'),
+    partial: t('Security checks on'),
+    full: t('Security: full'),
   }[state]
   return (
     <Popover
-      label="Security status"
+      label={t('Security status')}
       trigger={
         <>
           <Icon name="shield" size={15} className={`sec sec-${state}`} />
@@ -72,46 +93,51 @@ function SecurityIndicator() {
         </>
       }
     >
-      <h4>Pixels security</h4>
+      <h4>{t('Pixels security')}</h4>
       {data ? (
         <ul className="status-list">
-          <li data-ok="true">Magic-byte check, format allowlist, bomb and polyglot detection</li>
-          <li data-ok="true">Sandboxed decoding ({data.sandbox.kind})</li>
+          <li data-ok="true">{t('Magic-byte check, format allowlist, bomb and polyglot detection')}</li>
+          <li data-ok="true">
+            {t('Sandboxed decoding')} ({data.sandbox.kind})
+          </li>
           <li data-ok={data.yara.available}>
-            YARA rules:{' '}
+            {t('YARA rules')}:{' '}
             {data.yara.available
-              ? `${data.yara.rules} loaded`
-              : `unavailable (${data.yara.error ?? 'unknown'})`}
+              ? t('{n} loaded', { n: data.yara.rules })
+              : t('unavailable ({reason})', { reason: data.yara.error ?? t('unknown') })}
           </li>
           <li data-ok={data.clamav.available}>
-            ClamAV: {data.clamav.available ? 'connected' : 'not running'}
+            ClamAV: {data.clamav.available ? t('connected') : t('not running')}
           </li>
           <li data-ok={data.sandbox.network_isolated}>
-            OS network isolation for the decoder:{' '}
-            {data.sandbox.network_isolated ? 'on' : 'no (socket block only)'}
+            {t('OS network isolation for the decoder')}:{' '}
+            {data.sandbox.network_isolated ? t('on') : t('no (socket block only)')}
           </li>
         </ul>
       ) : (
-        <p>The backend is not reachable.</p>
+        <p>{t('The backend is not reachable.')}</p>
       )}
-      {data?.clamav.install_hint && <p className="hint">{data.clamav.install_hint}</p>}
-      <p className="hint">Files are described as “passed Pixels security checks”, never as virus-free.</p>
+      {data?.clamav.install_hint && <p className="hint">{t(data.clamav.install_hint)}</p>}
+      <p className="hint">
+        {t('Files are described as “passed Pixels security checks”, never as virus-free.')}
+      </p>
     </Popover>
   )
 }
 
 function ZoomControl() {
+  const t = useT()
   const zoom = useView((s) => s.target.zoom)
   const hasImage = useImage((s) => s.current !== null)
   const view = useView.getState
   return (
-    <div className="zoom-control" role="group" aria-label="Zoom">
+    <div className="zoom-control" role="group" aria-label={t('Zoom')}>
       <button
         type="button"
         className="icon-button"
         disabled={!hasImage}
-        aria-label="Zoom out"
-        title="Zoom out (Ctrl+-)"
+        aria-label={t('Zoom out')}
+        title={t('Zoom out (Ctrl+-)')}
         onClick={() => view().step(-1)}
       >
         <Icon name="minus" size={15} />
@@ -120,7 +146,7 @@ function ZoomControl() {
         type="button"
         className="zoom-value"
         disabled={!hasImage}
-        title="Actual size (Ctrl+1)"
+        title={t('Actual size (Ctrl+1)')}
         onClick={() => view().actualSize()}
       >
         {hasImage ? formatZoom(zoom) : '—'}
@@ -129,8 +155,8 @@ function ZoomControl() {
         type="button"
         className="icon-button"
         disabled={!hasImage}
-        aria-label="Zoom in"
-        title="Zoom in (Ctrl+=)"
+        aria-label={t('Zoom in')}
+        title={t('Zoom in (Ctrl+=)')}
         onClick={() => view().step(1)}
       >
         <Icon name="plus" size={15} />
@@ -139,8 +165,8 @@ function ZoomControl() {
         type="button"
         className="icon-button"
         disabled={!hasImage}
-        aria-label="Fit to screen"
-        title="Fit (Ctrl+0)"
+        aria-label={t('Fit to screen')}
+        title={t('Fit (Ctrl+0)')}
         onClick={() => view().fit()}
       >
         <Icon name="fit" size={15} />
@@ -150,6 +176,7 @@ function ZoomControl() {
 }
 
 function CompareControl() {
+  const t = useT()
   const mode = useEdit((s) => s.compare.mode)
   const setCompare = useEdit((s) => s.setCompare)
   const hasImage = useImage((s) => s.current !== null)
@@ -162,8 +189,8 @@ function CompareControl() {
     <div
       className="segmented segmented-compact"
       role="radiogroup"
-      aria-label="Compare before and after"
-      title="Compare with the unedited picture. Hold the backslash key to flip."
+      aria-label={t('Compare before and after')}
+      title={t('Compare with the unedited picture. Hold the backslash key to flip.')}
     >
       {options.map(([value, label]) => (
         <button
@@ -175,7 +202,7 @@ function CompareControl() {
           disabled={!hasImage}
           onClick={() => setCompare({ mode: value })}
         >
-          {label}
+          {t(label)}
         </button>
       ))}
     </div>
@@ -198,6 +225,7 @@ export async function saveCurrentProject(): Promise<void> {
 }
 
 function UndoRedo() {
+  const t = useT()
   const index = useEdit((s) => s.index)
   const length = useEdit((s) => s.history.length)
   const undo = useEdit((s) => s.undo)
@@ -208,8 +236,8 @@ function UndoRedo() {
         type="button"
         className="icon-button"
         disabled={index === 0}
-        aria-label="Undo"
-        title="Undo (Ctrl+Z)"
+        aria-label={t('Undo')}
+        title={t('Undo (Ctrl+Z)')}
         onClick={undo}
       >
         <Icon name="undo" />
@@ -218,8 +246,8 @@ function UndoRedo() {
         type="button"
         className="icon-button"
         disabled={index >= length - 1}
-        aria-label="Redo"
-        title="Redo (Ctrl+Shift+Z)"
+        aria-label={t('Redo')}
+        title={t('Redo (Ctrl+Shift+Z)')}
         onClick={redo}
       >
         <Icon name="redo" />
@@ -229,6 +257,7 @@ function UndoRedo() {
 }
 
 export function TopBar() {
+  const t = useT()
   const image = useImage((s) => s.current)
   const set = useUi((s) => s.set)
   return (
@@ -238,7 +267,7 @@ export function TopBar() {
         <Wordmark height={17} />
       </div>
       <div className="project" title={image?.name}>
-        {image ? image.name : 'No image open'}
+        {image ? image.name : t('No image open')}
       </div>
       <div className="topbar-spacer" />
       <UndoRedo />
@@ -251,8 +280,8 @@ export function TopBar() {
       <button
         type="button"
         className="icon-button"
-        aria-label="Command palette"
-        title="Command palette (Ctrl+K)"
+        aria-label={t('Command palette')}
+        title={t('Command palette (Ctrl+K)')}
         onClick={() => set({ paletteOpen: true })}
       >
         <Icon name="command" />
@@ -260,33 +289,35 @@ export function TopBar() {
       <button
         type="button"
         className="icon-button"
-        aria-label="User guide"
-        title="User guide (F1)"
+        aria-label={t('User guide')}
+        title={t('User guide (F1)')}
         onClick={() => set({ guideOpen: true })}
       >
         <Icon name="help" />
       </button>
+      <LanguageToggle />
       <ThemeToggle />
       <button type="button" className="button" onClick={openFilePicker}>
-        <Icon name="upload" size={15} /> Open
+        <Icon name="upload" size={15} /> {t('Open')}
       </button>
       <button
         type="button"
         className="button"
         disabled={!image}
         onClick={() => void saveCurrentProject()}
-        title="Save the picture and its edit history as a .pxe project (Ctrl+S)"
+        title={t('Save the picture and its edit history as a .pxe project (Ctrl+S)')}
       >
-        Save<span className="hide-narrow"> project</span>
+        {t('Save')}
+        <span className="hide-narrow"> {t('project')}</span>
       </button>
       <button
         type="button"
         className="button button-primary"
         disabled={!image}
         onClick={() => set({ exportOpen: true })}
-        title="Export (Ctrl+E)"
+        title={t('Export (Ctrl+E)')}
       >
-        <Icon name="export" size={15} /> Export
+        <Icon name="export" size={15} /> {t('Export')}
       </button>
     </header>
   )

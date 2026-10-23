@@ -12,6 +12,7 @@ from collections import deque
 import numpy as np
 from numpy.typing import NDArray
 
+from pipeline.errors import PublicError
 from pipeline.inpaint import blur, resize
 
 F32 = np.float32
@@ -101,11 +102,11 @@ def cutout(
     else:
         background = near
     if not background.any():
-        raise ValueError("No background of that colour was found. Try a higher tolerance.")
+        raise PublicError("No background of that colour was found. Try a higher tolerance.")
     keep = 1.0 - blur(background.astype(F32), max(0.0, feather))
     keep = np.where(background & (keep > 0.98), 0.0, keep)  # fully inside the background: gone
     if float(keep.mean()) < 0.001:
-        raise ValueError("That would remove the whole picture. Try a lower tolerance.")
+        raise PublicError("That would remove the whole picture. Try a lower tolerance.")
     out = image.copy()
     out[..., 3] = image[..., 3] * np.clip(keep, 0.0, 1.0)
     return out

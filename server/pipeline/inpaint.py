@@ -21,6 +21,8 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+from pipeline.errors import PublicError
+
 F32 = np.float32
 Array = NDArray[np.float32]
 Bool = NDArray[np.bool_]
@@ -299,12 +301,12 @@ def erase(image: Array, mask: Bool, options: EraseOptions | None = None) -> Arra
     """Return `image` (H, W, 4 float32, straight alpha) with the masked area removed and filled."""
     options = options or EraseOptions()
     if image.shape[:2] != mask.shape:
-        raise ValueError("The mask must have the same size as the picture.")
+        raise PublicError("The mask must have the same size as the picture.")
     if not mask.any():
         return image
     spec = QUALITY.get(options.quality)
     if spec is None:
-        raise ValueError("quality must be 'fast' or 'high'")
+        raise PublicError("quality must be 'fast' or 'high'")
     h, w = mask.shape
     grown = dilate(mask, max(0, options.grow))
     ys, xs = np.nonzero(grown)
@@ -314,7 +316,7 @@ def erase(image: Array, mask: Bool, options: EraseOptions | None = None) -> Arra
     crop = image[y0:y1, x0:x1].copy()
     hole = grown[y0:y1, x0:x1]
     if hole.all():
-        raise ValueError(
+        raise PublicError(
             "The painted area covers the whole picture: there is nothing to copy from."
         )
     ch, cw = hole.shape
@@ -347,7 +349,7 @@ def unpack_mask(packed: bytes, width: int, height: int) -> Bool:
     """A mask sent as packed bits (row-major, 1 = erase). No image codec is involved."""
     expected = (width * height + 7) // 8
     if len(packed) != expected:
-        raise ValueError(
+        raise PublicError(
             f"The mask has {len(packed)} bytes; {expected} were expected for {width} x {height}."
         )
     bits = np.unpackbits(np.frombuffer(packed, dtype=np.uint8))[: width * height]

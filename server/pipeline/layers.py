@@ -13,6 +13,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from pipeline import geometry
+from pipeline.errors import PublicError
 from pipeline.ops import Layer, LayerMask
 
 Array = NDArray[np.float32]
@@ -88,7 +89,7 @@ def blend_rgb(mode: str, cb: Array, cs: Array) -> Array:
         return np.asarray(np.abs(cb - cs), dtype=F32)
     if mode == "soft-light":
         return _soft_light(cb, cs)
-    raise ValueError(f"unknown blend mode {mode!r}")
+    raise PublicError(f"unknown blend mode {mode!r}")
 
 
 def blend(base: Array, top: Array, mode: str, opacity: float) -> Array:
@@ -108,7 +109,7 @@ def composite(base: Array, layers: list[Layer], load: LayerLoader | None) -> Arr
     if not visible:
         return base
     if load is None:
-        raise ValueError("This edit has layers but their pictures are not available.")
+        raise PublicError("This edit has layers but their pictures are not available.")
     height, width = base.shape[:2]
     out = base
     for layer in visible:

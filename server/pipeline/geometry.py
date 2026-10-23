@@ -17,6 +17,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
+from pipeline.errors import PublicError
 from pipeline.ops import (
     Canvas,
     Crop,
@@ -36,7 +37,7 @@ Matrix = NDArray[np.float64]
 CHUNK_PIXELS = 1_500_000
 
 
-class GeometryError(ValueError):
+class GeometryError(PublicError):
     """The ops cannot be applied (degenerate quad, output too large, ...)."""
 
 

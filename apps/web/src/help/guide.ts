@@ -46,6 +46,8 @@ export const GUIDE: GuideSection[] = [
         ul: [
           'The "Security report" in the Inspector lists every check and its result.',
           'If a file fails a check it is refused, with the reason in plain words.',
+          '"Hidden data" in the Inspector: pixels screens every picture for data hidden in its pixel values. "Looks suspicious" is a warning, not a refusal: noisy photos can look similar.',
+          '"SHA-256" in the Inspector is the fingerprint of the original file. The VirusTotal link next to it looks that fingerprint up; the picture itself is never uploaded.',
           'Supported: PNG, JPEG, WebP, TIFF, BMP, HEIC, AVIF. Large files are capped for safety.',
           'Camera information (model, exposure, date) is removed on opening. You can choose to put a short, checked list of it back when you export. GPS stays off unless you switch it on.',
         ],

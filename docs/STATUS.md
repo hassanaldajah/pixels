@@ -1,6 +1,6 @@
 # Project status and how to continue
 
-Last updated: 2026-10-22. Read this first in a new session.
+Last updated: 2026-10-23. Read this first in a new session.
 
 ## Where we are
 
@@ -17,6 +17,16 @@ algorithms that run locally.
   `app/api_retouch.py`, `RetouchPanel`, `UpscalePanel`.
 - Desktop: Tauri 2 shell, frozen backend (PyInstaller), NSIS installer (about 37 MB), installed and run on the
   user's PC. `.github/workflows/release.yml` is written but has never run.
+
+## Version 0.2.1 (security)
+
+- Hidden-data screen on every opened picture (`server/security/stego.py`), optional `PIXELS_SCRUB_LSB=1`.
+- SHA-256 of the original file and a VirusTotal hash lookup in the Inspector (the picture is never uploaded).
+- Windows firewall script `server/scripts/windows-block-network.ps1` and detection of its rule.
+- `docs/SECURITY_AUDIT.md` (bandit, HTTP probes, steganography results) and a Security section in the README.
+- Free security ideas still open: a real sandbox (AppContainer), decoder fuzzing, SBOM, privacy report, C2PA.
+  The v0.2.0 installer scanned 0 of 69 on VirusTotal (a snapshot, not a guarantee).
+- The promo video is built outside the repo (HTML + Three.js + Playwright + ffmpeg).
 
 ## Next steps, in order
 

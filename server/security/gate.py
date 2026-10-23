@@ -12,6 +12,7 @@ the sanitised PNG back; the original bytes are deleted by the caller.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from collections.abc import Callable
@@ -20,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from app.config import Settings
-from security import magic, polyglot
+from security import magic, polyglot, stego
 from security.errors import GateRejection
 from security.sandbox import SandboxCapabilities, capabilities, run_sandboxed
 from security.scanners import ClamdClient, YaraScanner
@@ -156,9 +157,34 @@ class SecurityGate:
         kind = self._check_size_and_type(upload, filename, track)
         self._check_payload(upload, kind, track)
         self._check_malware(upload, track, notices)
+        original_sha = _sha256(upload)
         meta = self._decode_in_sandbox(upload, clean_png, track, notices)
         meta["detected_kind"] = kind
+        meta["sha256_original"] = original_sha
+        meta["stego"] = self._screen_pixels(clean_png, notices)
+        meta["sha256_clean"] = _sha256(clean_png)
         return GateResult(clean_png, meta, track.snapshot(), notices)
+
+    def _screen_pixels(self, clean_png: Path, notices: list[str]) -> dict[str, Any]:
+        """Hidden-data screen on the sanitised picture; optionally scrub the low bits afterwards."""
+        try:
+            report = stego.analyse(clean_png)
+            if report.suspicious:
+                notices.extend(report.findings)
+            if self.settings.scrub_lsb:
+                stego.scrub(clean_png)
+                report.scrubbed = True
+                notices.append(
+                    "The lowest bits of every pixel were rewritten to remove any hidden data."
+                )
+        except Exception as exc:  # a screening failure must never block a clean picture
+            return {
+                "checked": False,
+                "suspicious": False,
+                "findings": [f"Screen failed: {type(exc).__name__}"],
+                "scrubbed": False,
+            }
+        return report.to_json()
 
     def _check_size_and_type(self, upload: Path, filename: str, track: _Tracker) -> str:
         s = self.settings
@@ -312,6 +338,14 @@ def worker_command(src: Path, dst: Path, max_pixels: int) -> list[str]:
     if getattr(sys, "frozen", False):
         return [sys.executable, "--decode-worker", *arguments]
     return [sys.executable, "-I", str(WORKER), *arguments]
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def _is_png(path: Path) -> bool:

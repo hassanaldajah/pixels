@@ -57,11 +57,24 @@ These are known and intentional; none is hidden by the UI.
   network namespace. macOS cannot cap a process's address space, so there the decoder's memory is not
   limited (the CPU, file-size and time limits still apply). The worker can still read files the
   current user can read.
-- **Network isolation is OS-enforced only on Linux** (when `unshare -rn` works). Elsewhere the
-  worker blocks sockets inside its own process, which is defence in depth, not a guarantee.
+- **Network isolation is OS-enforced on Linux** (when `unshare -rn` works) **and on Windows when the firewall rule
+  exists.** Run `scripts/windows-block-network.ps1` once as administrator (undo with `-Remove`): it blocks outbound
+  internet for the backend's Python. Pixels only talks to itself on 127.0.0.1, which the firewall does not filter.
+  Without the rule the worker still blocks sockets inside its own process, which is defence in depth, not a guarantee.
   `GET /api/security/status` reports which one you have.
 - **Linux and macOS sandbox code is covered by CI, not by the developer's Windows machine.**
-- **ClamAV is optional.** Without it you still get every other layer; the UI says so once.
+- **ClamAV is optional and free.** Without it you still get every other layer; the UI says so once. To turn it on
+  (Windows): `winget install ClamAV.ClamAV`, copy `conf_examples\clamd.conf.sample` to `clamd.conf` and
+  `freshclam.conf.sample` to `freshclam.conf` in the install folder, delete the line `Example` in both, add
+  `TCPSocket 3310` and `TCPAddr 127.0.0.1` to `clamd.conf`, run `freshclam` once (downloads the signatures), then start
+  `clamd`. Pixels connects by itself and the popover shows "ClamAV: connected". It is a background process, so start it
+  only when you want it.
+- **Hidden data in pixel values (LSB steganography)** is screened statistically on every opened picture and shown in
+  the inspector ("Hidden data"). A hit is a notice, not a rejection: noisy honest photos can look similar. Set
+  `PIXELS_SCRUB_LSB=1` to rewrite the lowest bit of every pixel, which destroys such a payload at a cost of at most
+  1/255 per channel.
+- **VirusTotal without uploading.** The inspector shows the SHA-256 of the original file with a link that looks the hash
+  up on VirusTotal. The picture itself never leaves the computer.
 - **Trailing data is refused by default.** Some phone photos (motion photos, multi-picture JPEGs)
   append a second image after the first. Set `PIXELS_REJECT_TRAILING_DATA=0` to allow them; the
   extra bytes are still discarded by re-encoding.

@@ -101,3 +101,13 @@ def test_capabilities_are_reported_honestly() -> None:
     assert caps.memory_limit == (sys.platform != "darwin")  # macOS cannot cap address space
     if sys.platform == "win32":
         assert caps.network_isolated is False  # blocked in-process only; documented limitation
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows Firewall only")
+def test_firewall_rule_listing_is_recognised() -> None:
+    from security.sandbox import FIREWALL_RULE, firewall_blocks
+
+    listing = f"Rule Name: {FIREWALL_RULE}\nProgram: C:\Py\python.exe\nAction: Block\n"
+    assert firewall_blocks(["C:\py\PYTHON.exe"], listing)
+    assert not firewall_blocks(["C:\Other\python.exe"], listing)
+    assert not firewall_blocks(["C:\Py\python.exe"], "No rules match the specified criteria.")

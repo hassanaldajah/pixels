@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     clamd_port: int = 3310
     clamd_socket: str | None = None
     clamav_required: bool = False
+    scrub_lsb: bool = False  # rewrite the lowest bit of every pixel to destroy LSB steganography
 
     @model_validator(mode="after")
     def _check_network(self) -> Self:

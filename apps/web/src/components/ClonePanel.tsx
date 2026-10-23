@@ -1,20 +1,23 @@
 import { MAX_CLONE } from '../engine/types'
+import { useT } from '../i18n'
 import { useClone } from '../state/clone'
 import { committedState, useDisplayedState, useEdit } from '../state/edit'
 import { Slider } from './controls'
 
 /** The Clone tool: copy one part of the picture onto another (remove a blemish, extend a texture). */
 export function ClonePanel() {
+  const t = useT()
   const clone = useClone()
   const strokes = useDisplayedState().clone ?? []
   return (
     <div className="tool-panel">
       <div className="tool-panel-head">
-        <h4>Clone</h4>
+        <h4>{t('Clone')}</h4>
       </div>
       <p className="hint">
-        Hold <strong>Alt</strong> and click the place to copy from, then paint where it should go. The cross
-        shows where the copy comes from. Alt+click again to pick a new source.
+        {t(
+          'Hold Alt and click the place to copy from, then paint where it should go. The cross shows where the copy comes from. Alt+click again to pick a new source.',
+        )}
       </p>
       <Slider
         label="Size"
@@ -53,7 +56,7 @@ export function ClonePanel() {
           disabled={!clone.source}
           onClick={() => clone.set({ source: null, offset: null })}
         >
-          Forget source
+          {t('Forget source')}
         </button>
         <button
           type="button"
@@ -61,13 +64,13 @@ export function ClonePanel() {
           disabled={strokes.length === 0}
           onClick={() => useEdit.getState().commit('Clear clone', { ...committedState(), clone: [] })}
         >
-          Clear all clones
+          {t('Clear all clones')}
         </button>
       </div>
       <p className="hint" aria-live="polite">
         {clone.source
-          ? `${strokes.length} of ${MAX_CLONE} strokes used.`
-          : 'Pick a source first (Alt+click).'}
+          ? t('{n} of {max} strokes used.', { n: strokes.length, max: MAX_CLONE })
+          : t('Pick a source first (Alt+click).')}
       </p>
     </div>
   )

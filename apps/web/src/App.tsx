@@ -11,6 +11,7 @@ import { JobsDock } from './components/JobsDock'
 import { RightPanel } from './components/RightPanel'
 import { ToolRail } from './components/ToolRail'
 import { TopBar } from './components/TopBar'
+import { useT } from './i18n'
 import { installPointerLight } from './lib/pointerLight'
 import { installShortcuts, takesText } from './lib/shortcuts'
 import { useEdit } from './state/edit'
@@ -35,6 +36,7 @@ function splashAlreadyShown(): boolean {
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
 export default function App() {
+  const t = useT()
   const [splash, setSplash] = useState(() => !splashAlreadyShown())
   const [intro, setIntro] = useState(() => splashAlreadyShown())
   const [dragging, setDragging] = useState(false)
@@ -101,7 +103,8 @@ export default function App() {
     let latest = kind === 'right' ? startRight : startDock
     const move = (ev: PointerEvent) => {
       if (kind === 'right') {
-        latest = clamp(startRight + (startX - ev.clientX), RIGHT_WIDTH.min, RIGHT_WIDTH.max)
+        const toward = document.documentElement.dir === 'rtl' ? -1 : 1 // the inspector sits on the left in Arabic
+        latest = clamp(startRight + (startX - ev.clientX) * toward, RIGHT_WIDTH.min, RIGHT_WIDTH.max)
         el.style.setProperty('--right-w', `${latest}px`)
       } else {
         latest = clamp(startDock + (startY - ev.clientY), DOCK_HEIGHT.min, DOCK_HEIGHT.max)
@@ -138,10 +141,10 @@ export default function App() {
             <div className="empty">
               <div className="empty-card glass" role="alert">
                 <Icon name="warn" size={32} />
-                <h2>WebGL 2 is not available</h2>
+                <h2>{t('WebGL 2 is not available')}</h2>
                 <p>{glError}</p>
                 <p className="hint">
-                  Update your graphics driver, or enable hardware acceleration in your browser.
+                  {t('Update your graphics driver, or enable hardware acceleration in your browser.')}
                 </p>
               </div>
             </div>
@@ -153,11 +156,11 @@ export default function App() {
             <button
               type="button"
               className="reopen glass"
-              aria-label="Show inspector"
-              title="Show inspector (Ctrl+])"
+              aria-label={t('Show inspector')}
+              title={t('Show inspector (Ctrl+])')}
               onClick={() => ui.set({ rightOpen: true })}
             >
-              <Icon name="panelRight" size={18} />
+              <Icon name="panelRight" size={18} className="rtl-flip" />
             </button>
           )}
         </main>
@@ -167,7 +170,7 @@ export default function App() {
               className="resizer resizer-v"
               role="separator"
               aria-orientation="vertical"
-              aria-label="Resize inspector"
+              aria-label={t('Resize inspector')}
               onPointerDown={startResize('right')}
             />
             <RightPanel />
@@ -178,7 +181,7 @@ export default function App() {
             className="resizer resizer-h"
             role="separator"
             aria-orientation="horizontal"
-            aria-label="Resize dock"
+            aria-label={t('Resize dock')}
             onPointerDown={startResize('dock')}
           />
         )}

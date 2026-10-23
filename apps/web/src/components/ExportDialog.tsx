@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { RejectionError } from '../api/client'
 import { defaultExportOptions, exportImage, saveBlob, type ExportOptions } from '../api/edit'
 import { useCapabilities } from '../api/queries'
+import { useT } from '../i18n'
 import { displayedState } from '../state/edit'
 import { useImage } from '../state/image'
 import { useUi } from '../state/ui'
@@ -30,6 +31,7 @@ function loadOptions(): ExportOptions {
 }
 
 export function ExportDialog() {
+  const t = useT()
   const open = useUi((s) => s.exportOpen)
   const set = useUi((s) => s.set)
   const image = useImage((s) => s.current)
@@ -68,7 +70,7 @@ export function ExportDialog() {
       saveBlob(blob, filename)
       setDone(`${filename} · ${(blob.size / 1024 / 1024).toFixed(2)} MB`)
     } catch (e) {
-      setError(e instanceof RejectionError ? e.message : 'The export failed.')
+      setError(e instanceof RejectionError ? t(e.message) : t('The export failed.'))
     } finally {
       setBusy(false)
     }
@@ -79,12 +81,12 @@ export function ExportDialog() {
       <div
         className="dialog glass"
         role="dialog"
-        aria-label="Export"
+        aria-label={t('Export')}
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="dialog-head">
-          <h3>Export</h3>
-          <button type="button" className="icon-button" aria-label="Close" onClick={close}>
+          <h3>{t('Export')}</h3>
+          <button type="button" className="icon-button" aria-label={t('Close')} onClick={close}>
             <Icon name="close" size={16} />
           </button>
         </div>
@@ -96,11 +98,11 @@ export function ExportDialog() {
             ...f,
             disabled: caps.data ? !caps.data.formats[f.value] : false,
             title:
-              caps.data && !caps.data.formats[f.value] ? 'Not supported by this installation' : undefined,
+              caps.data && !caps.data.formats[f.value] ? t('Not supported by this installation') : undefined,
           }))}
         />
         {lossy && (
-          <Field label={`Quality ${options.quality}`}>
+          <Field label={`${t('Quality')} ${options.quality}`}>
             <input
               type="range"
               min={1}
@@ -129,8 +131,9 @@ export function ExportDialog() {
         )}
         {deep && options.bit_depth === 16 && (
           <p className="hint">
-            16-bit keeps the smooth gradients your adjustments produce. The source copy is 8-bit, so it adds
-            no detail by itself.
+            {t(
+              'The 16-bit option keeps the smooth gradients your adjustments produce. The source copy is 8-bit, so it adds no detail by itself.',
+            )}
           </p>
         )}
         <Field label="Colour profile">
@@ -150,7 +153,7 @@ export function ExportDialog() {
               type="color"
               value={options.background}
               onChange={(e) => patch({ background: e.target.value })}
-              aria-label="Background colour"
+              aria-label={t('Background colour')}
             />
           </Field>
         )}
@@ -160,7 +163,7 @@ export function ExportDialog() {
               type="number"
               min={36}
               max={2400}
-              placeholder="not set"
+              placeholder={t('not set')}
               value={options.dpi ?? ''}
               onChange={(e) =>
                 patch({ dpi: e.target.value ? Math.min(2400, Math.max(36, Number(e.target.value))) : null })
@@ -183,8 +186,9 @@ export function ExportDialog() {
           onChange={(keep_gps) => patch({ keep_gps })}
         />
         <p className="hint">
-          Metadata is removed when a file is imported. These options re-attach only the validated values
-          listed above. Off by default.
+          {t(
+            'Metadata is removed when a file is imported. These options re-attach only the validated values listed above. Off by default.',
+          )}
         </p>
         {error && (
           <p className="error" role="alert">
@@ -193,15 +197,15 @@ export function ExportDialog() {
         )}
         {done && (
           <p className="success" role="status">
-            <Icon name="check" size={14} /> Saved {done}
+            <Icon name="check" size={14} /> {t('Saved')} {done}
           </p>
         )}
         <div className="actions">
           <button type="button" className="button button-primary" disabled={busy} onClick={() => void run()}>
-            <Icon name="export" size={15} /> {busy ? 'Rendering…' : 'Export'}
+            <Icon name="export" size={15} /> {busy ? t('Rendering…') : t('Export')}
           </button>
           <button type="button" className="button" onClick={close}>
-            Close
+            {t('Close')}
           </button>
         </div>
       </div>

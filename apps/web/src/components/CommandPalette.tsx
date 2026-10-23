@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useT } from '../i18n'
 import { GuideDialog } from './GuideDialog'
 import { COMMANDS, type Command } from '../lib/shortcuts'
 import { useUi } from '../state/ui'
 
 function Palette() {
+  const t = useT()
   const set = useUi((s) => s.set)
   const [query, setQuery] = useState('')
   const [index, setIndex] = useState(0)
@@ -13,9 +15,14 @@ function Palette() {
   const items = useMemo(() => {
     const q = query.trim().toLowerCase()
     return COMMANDS.filter((c) => !c.enabled || c.enabled()).filter(
-      (c) => !q || c.title.toLowerCase().includes(q) || c.group.toLowerCase().includes(q),
+      (c) =>
+        !q ||
+        c.title.toLowerCase().includes(q) ||
+        c.group.toLowerCase().includes(q) ||
+        t(c.title).toLowerCase().includes(q) ||
+        t(c.group).toLowerCase().includes(q),
     )
-  }, [query])
+  }, [query, t])
 
   const close = () => set({ paletteOpen: false })
   const run = (c: Command | undefined) => {
@@ -29,7 +36,7 @@ function Palette() {
       <div
         className="palette glass"
         role="dialog"
-        aria-label="Command palette"
+        aria-label={t('Command palette')}
         onPointerDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === 'Escape') close()
@@ -51,8 +58,8 @@ function Palette() {
             setQuery(e.target.value)
             setIndex(0)
           }}
-          placeholder="Type a command…"
-          aria-label="Search commands"
+          placeholder={t('Type a command…')}
+          aria-label={t('Search commands')}
         />
         <ul role="listbox">
           {items.map((c, i) => (
@@ -64,12 +71,12 @@ function Palette() {
               onPointerEnter={() => setIndex(i)}
               onClick={() => run(c)}
             >
-              <span className="palette-group">{c.group}</span>
-              <span className="palette-title">{c.title}</span>
+              <span className="palette-group">{t(c.group)}</span>
+              <span className="palette-title">{t(c.title)}</span>
               {c.keys && <kbd>{c.keys}</kbd>}
             </li>
           ))}
-          {items.length === 0 && <li className="muted">No matching command</li>}
+          {items.length === 0 && <li className="muted">{t('No matching command')}</li>}
         </ul>
       </div>
     </div>
@@ -77,6 +84,7 @@ function Palette() {
 }
 
 function Help() {
+  const t = useT()
   const set = useUi((s) => s.set)
   const close = () => set({ helpOpen: false })
   useEffect(() => {
@@ -90,18 +98,18 @@ function Help() {
       <div
         className="help glass"
         role="dialog"
-        aria-label="Keyboard shortcuts"
+        aria-label={t('Keyboard shortcuts')}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <h3>Keyboard shortcuts</h3>
+        <h3>{t('Keyboard shortcuts')}</h3>
         <div className="help-grid">
           {groups.map((g) => (
             <section key={g}>
-              <h4>{g}</h4>
+              <h4>{t(g)}</h4>
               <dl>
                 {COMMANDS.filter((c) => c.group === g && c.keys).map((c) => (
                   <div key={c.id}>
-                    <dt>{c.title}</dt>
+                    <dt>{t(c.title)}</dt>
                     <dd>
                       <kbd>{c.keys}</kbd>
                     </dd>
@@ -111,31 +119,31 @@ function Help() {
             </section>
           ))}
           <section>
-            <h4>Canvas</h4>
+            <h4>{t('Canvas')}</h4>
             <dl>
               <div>
-                <dt>Zoom</dt>
+                <dt>{t('Zoom')}</dt>
                 <dd>
-                  <kbd>Wheel</kbd>
+                  <kbd>{t('Wheel')}</kbd>
                 </dd>
               </div>
               <div>
-                <dt>Pan</dt>
+                <dt>{t('Pan')}</dt>
                 <dd>
-                  <kbd>Space</kbd> + drag, or middle mouse
+                  <kbd>{t('Space')}</kbd> {t('+ drag, or middle mouse')}
                 </dd>
               </div>
               <div>
-                <dt>Fit</dt>
-                <dd>Double-click</dd>
+                <dt>{t('Fit')}</dt>
+                <dd>{t('Double-click')}</dd>
               </div>
               <div>
-                <dt>Add guide</dt>
-                <dd>Drag from a ruler</dd>
+                <dt>{t('Add guide')}</dt>
+                <dd>{t('Drag from a ruler')}</dd>
               </div>
               <div>
-                <dt>Remove guide</dt>
-                <dd>Drag it back out</dd>
+                <dt>{t('Remove guide')}</dt>
+                <dd>{t('Drag it back out')}</dd>
               </div>
             </dl>
           </section>

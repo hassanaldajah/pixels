@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useT } from '../i18n'
 import { useEraser } from '../state/eraser'
 import { useImage } from '../state/image'
 import { useRetouch } from '../state/retouch'
 import { Check, Group, Slider } from './controls'
 
 export function RetouchPanel() {
+  const t = useT()
   const heal = useEraser()
   const retouch = useRetouch()
   const canRestore = useImage((s) => s.versions.length > 0)
@@ -20,13 +22,14 @@ export function RetouchPanel() {
   return (
     <div className="tool-panel">
       <div className="tool-panel-head">
-        <h4>Retouch</h4>
+        <h4>{t('Retouch')}</h4>
       </div>
 
       <Group title="Heal spots">
         <p className="hint">
-          Paint over a spot, blemish or dust mark, then press Heal. It is filled from the surrounding pixels.
-          Hold Alt to rub paint out.
+          {t(
+            'Paint over a spot, blemish or dust mark, then press Heal. It is filled from the surrounding pixels. Hold Alt to rub paint out.',
+          )}
         </p>
         <Slider
           label="Brush size"
@@ -48,7 +51,7 @@ export function RetouchPanel() {
               void heal.run()
             }}
           >
-            {heal.busy ? 'Healing…' : 'Heal'}
+            {heal.busy ? t('Healing…') : t('Heal')}
           </button>
           <button
             type="button"
@@ -56,24 +59,24 @@ export function RetouchPanel() {
             disabled={heal.undoable === 0 || busy}
             onClick={heal.undoStroke}
           >
-            Undo stroke
+            {t('Undo stroke')}
           </button>
           <button type="button" className="button" disabled={!heal.hasMask || busy} onClick={heal.clear}>
-            Clear paint
+            {t('Clear paint')}
           </button>
           <button type="button" className="button" disabled={!canRestore || busy} onClick={restore}>
-            Undo last change
+            {t('Undo last change')}
           </button>
         </div>
         {heal.error && (
           <p className="hint hint-error" role="alert">
-            {heal.error}
+            {t(heal.error)}
           </p>
         )}
       </Group>
 
       <Group title="Skin smoothing">
-        <p className="hint">Evens out skin tones and blemishes; eyes, hair and edges stay sharp.</p>
+        <p className="hint">{t('Evens out skin tones and blemishes; eyes, hair and edges stay sharp.')}</p>
         <Slider
           label="Amount"
           value={amount}
@@ -108,14 +111,15 @@ export function RetouchPanel() {
           disabled={busy || amount === 0}
           onClick={() => void retouch.run('smooth', { amount, radius, protect })}
         >
-          {retouch.busy === 'smooth' ? 'Smoothing…' : 'Smooth skin'}
+          {retouch.busy === 'smooth' ? t('Smoothing…') : t('Smooth skin')}
         </button>
       </Group>
 
       <Group title="Remove background">
         <p className="hint">
-          Makes a plain background transparent (studio shots, product photos, screenshots). It looks at the
-          colour around the edge of the picture, so it works best on an even background.
+          {t(
+            'Makes a plain background transparent (studio shots, product photos, screenshots). It looks at the colour around the edge of the picture, so it works best on an even background.',
+          )}
         </p>
         <Slider
           label="Tolerance"
@@ -150,18 +154,19 @@ export function RetouchPanel() {
           disabled={busy}
           onClick={() => void retouch.run('cutout', { tolerance, feather, contiguous, colour: null })}
         >
-          {retouch.busy === 'cutout' ? 'Removing…' : 'Remove background'}
+          {retouch.busy === 'cutout' ? t('Removing…') : t('Remove background')}
         </button>
       </Group>
 
       {retouch.error && (
         <p className="hint hint-error" role="alert">
-          {retouch.error}
+          {t(retouch.error)}
         </p>
       )}
       <p className="hint">
-        Each action makes a new version; “Undo last change” goes back. Edits you made before (crop, colours)
-        are applied to the picture first.
+        {t(
+          'Each action makes a new version; “Undo last change” goes back. Edits you made before (crop, colours) are applied to the picture first.',
+        )}
       </p>
     </div>
   )

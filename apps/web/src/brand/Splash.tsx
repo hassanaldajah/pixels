@@ -1,3 +1,4 @@
+import { useT } from '../i18n'
 import gsap from 'gsap'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { wordmark } from './wordmark.generated'
@@ -24,6 +25,7 @@ const HARD_LIMIT_MS = 6000
 const SKEW = -22
 
 export function Splash({ onDone, onReveal }: { onDone: () => void; onReveal?: () => void }) {
+  const t = useT()
   const reveal$ = useRef(onReveal)
   reveal$.current = onReveal
   const root = useRef<HTMLDivElement>(null)
@@ -205,7 +207,7 @@ export function Splash({ onDone, onReveal }: { onDone: () => void; onReveal?: ()
         </g>
         <circle ref={spark} cx={P_STEM_X} cy={H + PAD} r="46" fill="url(#splash-spark)" opacity="0" />
       </svg>
-      <div className="splash-hint">Click or press Esc to skip</div>
+      <div className="splash-hint">{t('Click or press Esc to skip')}</div>
     </div>
   )
 }

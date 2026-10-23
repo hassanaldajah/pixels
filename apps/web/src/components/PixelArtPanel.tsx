@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { fetchPixelPalettes, importPixelPalette, type PixelPaletteInfo } from '../api/edit'
 import { defaultPixelArt, type Dither, type PixelArt } from '../engine/types'
+import { useT } from '../i18n'
 import { committedState, useDisplayedState, useEdit } from '../state/edit'
 import { usePixelPreview } from '../state/pixelPreview'
 import { Check, Field, Group, Segmented, Slider } from './controls'
@@ -37,6 +38,7 @@ function Strip({ colors, title }: { colors: string[]; title?: string }) {
 }
 
 export function PixelArtPanel() {
+  const t = useT()
   const art = useDisplayedState().pixelart ?? null
   const info = usePixelPreview((s) => s.info)
   const loading = usePixelPreview((s) => s.loading)
@@ -59,18 +61,19 @@ export function PixelArtPanel() {
     return (
       <div className="tool-panel">
         <div className="tool-panel-head">
-          <h4>Pixel art</h4>
+          <h4>{t('Pixel art')}</h4>
         </div>
         <p className="hint">
-          Turns the picture into crisp pixel art: a chosen palette, optional dithering and an outline. It is
-          drawn on top of your other edits and is what gets exported.
+          {t(
+            'Turns the picture into crisp pixel art: a chosen palette, optional dithering and an outline. It is drawn on top of your other edits and is what gets exported.',
+          )}
         </p>
         <button
           type="button"
           className="button button-primary"
           onClick={() => commitArt('Pixel art on', defaultPixelArt())}
         >
-          Make it pixel art
+          {t('Make it pixel art')}
         </button>
       </div>
     )
@@ -87,25 +90,25 @@ export function PixelArtPanel() {
       const colors = await importPixelPalette(picked)
       set('Import palette', { palette: 'custom', custom_palette: colors.slice(0, 64) })
     } catch (e) {
-      setImportError(e instanceof Error ? e.message : 'That palette could not be read.')
+      setImportError(e instanceof Error ? e.message : t('That palette could not be read.'))
     }
   }
 
   return (
     <div className="tool-panel">
       <div className="tool-panel-head">
-        <h4>Pixel art</h4>
+        <h4>{t('Pixel art')}</h4>
         <button type="button" className="button" onClick={() => commitArt('Pixel art off', null)}>
-          Turn off
+          {t('Turn off')}
         </button>
       </div>
       <p className="hint" aria-live="polite">
         {error
-          ? error
+          ? t(error)
           : loading
-            ? 'Updating…'
+            ? t('Updating…')
             : info
-              ? `${info.grid[0]} × ${info.grid[1]} art pixels · ${info.colors} colours`
+              ? t('{w} × {h} art pixels · {n} colours', { w: info.grid[0], h: info.grid[1], n: info.colors })
               : ''}
       </p>
 
@@ -132,7 +135,7 @@ export function PixelArtPanel() {
       </Group>
 
       <Group title="Palette">
-        <div className="palette-list" role="radiogroup" aria-label="Palette">
+        <div className="palette-list" role="radiogroup" aria-label={t('Palette')}>
           <button
             type="button"
             role="radio"
@@ -140,8 +143,8 @@ export function PixelArtPanel() {
             data-active={art.palette === 'auto'}
             onClick={() => set('Palette: automatic', { palette: 'auto' })}
           >
-            <span>Automatic</span>
-            <small>picked from the picture</small>
+            <span>{t('Automatic')}</span>
+            <small>{t('picked from the picture')}</small>
           </button>
           {palettes.map((p) => (
             <button
@@ -153,7 +156,7 @@ export function PixelArtPanel() {
               onClick={() => set(`Palette: ${p.label}`, { palette: p.id as PixelArt['palette'] })}
             >
               <span>{p.label}</span>
-              <Strip colors={p.colors} title={`${p.colors.length} colours`} />
+              <Strip colors={p.colors} title={t('{n} colours', { n: p.colors.length })} />
             </button>
           ))}
           {art.custom_palette.length > 0 && (
@@ -164,8 +167,8 @@ export function PixelArtPanel() {
               data-active={art.palette === 'custom'}
               onClick={() => set('Palette: imported', { palette: 'custom' })}
             >
-              <span>Imported</span>
-              <Strip colors={art.custom_palette} title={`${art.custom_palette.length} colours`} />
+              <span>{t('Imported')}</span>
+              <Strip colors={art.custom_palette} title={t('{n} colours', { n: art.custom_palette.length })} />
             </button>
           )}
         </div>
@@ -180,9 +183,9 @@ export function PixelArtPanel() {
             onCommit={(v) => set(`Colours ${v}`, { colors: v })}
           />
         )}
-        {chosen && <p className="hint">{chosen.colors.length} colours</p>}
+        {chosen && <p className="hint">{t('{n} colours', { n: chosen.colors.length })}</p>}
         <button type="button" className="button" onClick={() => file.current?.click()}>
-          Import palette (.hex, .gpl)
+          {t('Import palette (.hex, .gpl)')}
         </button>
         <input
           ref={file}
@@ -206,7 +209,7 @@ export function PixelArtPanel() {
             >
               {DITHERS.map((d) => (
                 <option key={d.value} value={d.value}>
-                  {d.label}
+                  {t(d.label)}
                 </option>
               ))}
             </select>
@@ -237,7 +240,7 @@ export function PixelArtPanel() {
             <input
               type="color"
               value={art.outline_color}
-              aria-label="Outline colour"
+              aria-label={t('Outline colour')}
               onChange={(e) => live({ outline_color: e.target.value })}
               onBlur={(e) => set('Outline colour', { outline_color: e.target.value })}
             />
@@ -252,7 +255,9 @@ export function PixelArtPanel() {
           options={SCALES.map((s) => ({ ...s }))}
           onChange={(v) => set(`Export ${v === '0' ? 'same size' : `${v}×`}`, { scale: Number(v) })}
         />
-        <p className="hint">“1×” exports the sprite itself; 4× or 8× make big, sharp blocks for sharing.</p>
+        <p className="hint">
+          {t('“1×” exports the sprite itself; 4× or 8× make big, sharp blocks for sharing.')}
+        </p>
       </Group>
     </div>
   )

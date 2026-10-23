@@ -93,6 +93,11 @@ jobs:
           PIXELS_BROWSER: chrome
           PIXELS_SHOTS: ${{ runner.temp }}/shots
         run: pnpm --filter @pixels/web run e2e:edit
+      - name: Arabic interface test (right to left, language button)
+        env:
+          PIXELS_BROWSER: chrome
+          PIXELS_SHOTS: ${{ runner.temp }}/shots
+        run: pnpm --filter @pixels/web run e2e:arabic
       - uses: actions/upload-artifact@v4
         if: always()
         with:

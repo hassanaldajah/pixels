@@ -1,8 +1,10 @@
+import { useT } from '../i18n'
 import { useImage } from '../state/image'
 import { useEraser } from '../state/eraser'
 import { Group, Segmented, Slider } from './controls'
 
 export function EraserPanel() {
+  const t = useT()
   const e = useEraser()
   const canRestore = useImage((s) => s.versions.length > 0)
   const restore = useImage((s) => s.restorePrevious)
@@ -10,11 +12,12 @@ export function EraserPanel() {
   return (
     <div className="tool-panel">
       <div className="tool-panel-head">
-        <h4>Eraser</h4>
+        <h4>{t('Eraser')}</h4>
       </div>
       <p className="hint">
-        Paint over what you want gone, then press Remove. The gap is filled from the surrounding texture, on
-        your computer. Hold Alt to rub paint out; hold Space to move the picture.
+        {t(
+          'Paint over what you want gone, then press Remove. The gap is filled from the surrounding texture, on your computer. Hold Alt to rub paint out; hold Space to move the picture.',
+        )}
       </p>
 
       <Group title="Brush">
@@ -69,7 +72,9 @@ export function EraserPanel() {
           onPreview={(v) => e.set({ feather: v })}
           onCommit={(v) => e.set({ feather: v })}
         />
-        <p className="hint">“Grow edge” also covers shadows and the soft rim around what you painted.</p>
+        <p className="hint">
+          {t('“Grow edge” also covers shadows and the soft rim around what you painted.')}
+        </p>
       </Group>
 
       <div className="eraser-actions">
@@ -79,31 +84,32 @@ export function EraserPanel() {
           disabled={!e.hasMask || e.busy}
           onClick={() => void e.run()}
         >
-          {e.busy ? 'Removing…' : 'Remove'}
+          {e.busy ? t('Removing…') : t('Remove')}
         </button>
         <button type="button" className="button" disabled={e.undoable === 0 || e.busy} onClick={e.undoStroke}>
-          Undo stroke
+          {t('Undo stroke')}
         </button>
         <button type="button" className="button" disabled={!e.hasMask || e.busy} onClick={e.clear}>
-          Clear paint
+          {t('Clear paint')}
         </button>
         <button type="button" className="button" disabled={!canRestore || e.busy} onClick={restore}>
-          Undo last removal
+          {t('Undo last removal')}
         </button>
       </div>
       {e.busy && (
         <p className="hint" aria-live="polite">
-          This can take up to a minute for big areas at high quality.
+          {t('This can take up to a minute for big areas at high quality.')}
         </p>
       )}
       {e.error && (
         <p className="hint hint-error" role="alert">
-          {e.error}
+          {t(e.error)}
         </p>
       )}
       <p className="hint">
-        Edits you made before (crop, colours) are applied to the picture when you remove something, so paint
-        after you are done with those.
+        {t(
+          'Edits you made before (crop, colours) are applied to the picture when you remove something, so paint after you are done with those.',
+        )}
       </p>
     </div>
   )

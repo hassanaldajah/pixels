@@ -1,10 +1,12 @@
 import { MAX_LOCAL } from '../engine/types'
+import { useT } from '../i18n'
 import { PRESETS, useBrush, type BrushMode } from '../state/brush'
 import { committedState, useDisplayedState, useEdit } from '../state/edit'
 import { Slider } from './controls'
 
 /** The Brush tool: paint a light or colour change onto just the part of the picture you choose. */
 export function BrushPanel() {
+  const t = useT()
   const brush = useBrush()
   const local = useDisplayedState().local ?? []
   const painted = local.filter((l) => l.paint)
@@ -14,14 +16,15 @@ export function BrushPanel() {
   return (
     <div className="tool-panel">
       <div className="tool-panel-head">
-        <h4>Brush</h4>
+        <h4>{t('Brush')}</h4>
       </div>
       <p className="hint">
-        Paint on the picture. The change shows only where you paint: lighten or darken an area, brighten eyes,
-        whiten teeth. Hold Alt to rub paint out. Pick the parts yourself: nothing is detected automatically.
+        {t(
+          'Paint on the picture. The change shows only where you paint: lighten or darken an area, brighten eyes, whiten teeth. Hold Alt to rub paint out. Pick the parts yourself: nothing is detected automatically.',
+        )}
       </p>
       <label className="field">
-        <span>Effect</span>
+        <span>{t('Effect')}</span>
         <span className="select-wrap">
           <select
             value={brush.mode}
@@ -29,13 +32,13 @@ export function BrushPanel() {
           >
             {(Object.keys(PRESETS) as BrushMode[]).map((m) => (
               <option key={m} value={m}>
-                {PRESETS[m].label}
+                {t(PRESETS[m].label)}
               </option>
             ))}
           </select>
         </span>
       </label>
-      <p className="hint">{PRESETS[brush.mode].hint}</p>
+      <p className="hint">{t(PRESETS[brush.mode].hint)}</p>
       <Slider
         label="Size"
         value={brush.size}
@@ -83,7 +86,7 @@ export function BrushPanel() {
           disabled={!target}
           onClick={() => brush.set({ target: null })}
         >
-          Start a new area
+          {t('Start a new area')}
         </button>
         <button
           type="button"
@@ -98,15 +101,17 @@ export function BrushPanel() {
             brush.set({ target: null })
           }}
         >
-          Clear this area
+          {t('Clear this area')}
         </button>
       </div>
       <p className="hint" aria-live="polite">
         {full
-          ? `You have ${MAX_LOCAL} local adjustments already: delete one first.`
+          ? t('You have {n} local adjustments already: delete one first.', { n: MAX_LOCAL })
           : target
-            ? `Painting into “${target.name}”. Fine-tune its light and colour under Local adjustments.`
-            : 'Your next stroke starts a new painted area.'}
+            ? t('Painting into “{name}”. Fine-tune its light and colour under Local adjustments.', {
+                name: target.name,
+              })
+            : t('Your next stroke starts a new painted area.')}
       </p>
     </div>
   )

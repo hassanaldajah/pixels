@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { defaultAdjust, MAX_LOCAL, type Adjust, type LayerMask, type LocalAdjust } from '../engine/types'
+import { useT } from '../i18n'
 import { committedState, useDisplayedState, useEdit } from '../state/edit'
 import { useImage } from '../state/image'
 import { Group, Slider } from './controls'
@@ -52,10 +53,11 @@ function startMask(kind: LayerMask['kind'], w: number, h: number): LayerMask {
 
 /** Local adjustments: light and colour changes that apply only where a gradient says so (graduated and radial filters). */
 export function LocalPanel() {
+  const t = useT()
   const image = useImage((s) => s.current)
   const items = useDisplayedState().local ?? []
   const [selected, setSelected] = useState<string | null>(null)
-  if (!image) return <p className="muted">Open an image to add a local adjustment.</p>
+  if (!image) return <p className="muted">{t('Open an image to add a local adjustment.')}</p>
   const current = items.find((l) => l.id === selected) ?? null
 
   const add = (kind: LayerMask['kind']) => {
@@ -78,8 +80,10 @@ export function LocalPanel() {
   return (
     <div className="layers-panel">
       <p className="hint">
-        Brighten a sky, darken the edges or lift a face: each filter changes light and colour only where its
-        gradient is opaque. Stack up to {MAX_LOCAL}.
+        {t(
+          'Brighten a sky, darken the edges or lift a face: each filter changes light and colour only where its gradient is opaque. Stack up to {n}.',
+          { n: MAX_LOCAL },
+        )}
       </p>
       <div className="layers-actions">
         <button
@@ -88,7 +92,7 @@ export function LocalPanel() {
           disabled={items.length >= MAX_LOCAL}
           onClick={() => add('linear')}
         >
-          <Icon name="plus" size={14} /> Graduated
+          <Icon name="plus" size={14} /> {t('Graduated')}
         </button>
         <button
           type="button"
@@ -96,19 +100,23 @@ export function LocalPanel() {
           disabled={items.length >= MAX_LOCAL}
           onClick={() => add('radial')}
         >
-          <Icon name="plus" size={14} /> Radial
+          <Icon name="plus" size={14} /> {t('Radial')}
         </button>
       </div>
       {items.length === 0 ? (
-        <p className="muted">No local adjustments yet.</p>
+        <p className="muted">{t('No local adjustments yet.')}</p>
       ) : (
-        <ul className="layer-list" aria-label="Local adjustments">
+        <ul className="layer-list" aria-label={t('Local adjustments')}>
           {items.map((item) => (
             <li key={item.id} data-active={item.id === selected} data-hidden={!item.visible}>
               <button
                 type="button"
                 className="icon-button"
-                aria-label={item.visible ? `Hide ${item.name}` : `Show ${item.name}`}
+                aria-label={
+                  item.visible
+                    ? t('Hide {name}', { name: t(item.name) })
+                    : t('Show {name}', { name: t(item.name) })
+                }
                 aria-pressed={item.visible}
                 onClick={() =>
                   write(
@@ -123,14 +131,14 @@ export function LocalPanel() {
                 type="button"
                 className="layer-name"
                 onClick={() => setSelected(item.id)}
-                title={item.name}
+                title={t(item.name)}
               >
-                {item.name}
+                {t(item.name)}
               </button>
               <button
                 type="button"
                 className="icon-button"
-                aria-label={`Delete ${item.name}`}
+                aria-label={t('Delete {name}', { name: t(item.name) })}
                 onClick={() => {
                   write(
                     'Delete local adjustment',
@@ -148,7 +156,7 @@ export function LocalPanel() {
       {current && (
         <>
           <Group title="Where">
-            {!current.mask && <p className="hint">Painted with the Brush tool.</p>}
+            {!current.mask && <p className="hint">{t('Painted with the Brush tool.')}</p>}
             {current.mask && (
               <MaskControls
                 mask={current.mask}

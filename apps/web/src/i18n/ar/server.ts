@@ -118,6 +118,11 @@ export const server: Record<string, string> = {
 
 /** Server sentences with values in them: [pattern, Arabic]. `$1`, `$2` are the captured parts (translated when known). */
 export const serverPatterns: Array<[RegExp, string]> = [
+  // history entries that carry a name
+  [/^Action: (.+)$/, 'إجراء: $1'],
+  [/^Brush: (.+)$/, 'فرشاة: $1'],
+  [/^Liquify: (.+)$/, 'تشكيل: $1'],
+  [/^Add (.+\.\w{2,4})$/, 'إضافة $1'],
   [/^“(.+)” is empty\.$/, '«$1» فارغ.'],
   [/^“(.+)” is ([\d.,]+) MB; the limit is ([\d.,]+) MB\.$/, '«$1» حجمه $2 م.ب، والحد الأقصى $3 م.ب.'],
   [/^“(.+)”: (.+) files are not accepted\.(.*)$/, '«$1»: ملفات $2 غير مقبولة.$3'],

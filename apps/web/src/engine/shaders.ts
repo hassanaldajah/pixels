@@ -193,6 +193,73 @@ void main() {
   outColor = acc / sum;
 }`
 
+/**
+ * Motion, lens and spin blur in one pass. Every tap position is rounded with floor(x + 0.5), exactly like
+ * server/pipeline/blur.py, so the preview and the export sample the same pixels.
+ */
+export const SHAPED_BLUR_FRAG = `${HEADER}
+uniform sampler2D u_src;
+uniform ivec2 u_size;
+uniform int u_kind;            // 1 motion, 2 lens, 3 spin
+uniform float u_amount;        // spin: the slider value
+uniform ivec2 u_taps[193];     // motion and lens: offsets from engine/blurTaps.ts (double precision)
+uniform int u_count;
+
+vec4 at(ivec2 p) { return texelFetch(u_src, clamp(p, ivec2(0), u_size - 1), 0); }
+
+void main() {
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 acc = vec4(0.0);
+  float total = 0.0;
+  if (u_kind == 1) {
+    for (int i = 0; i < 193; i++) {
+      if (i >= u_count) break;
+      acc += at(c + u_taps[i]);
+      total += 1.0;
+    }
+  } else if (u_kind == 2) {
+    for (int k = 0; k < 64; k++) {
+      if (k >= u_count) break;
+      vec4 s = at(c + u_taps[k]);
+      float l = dot(s.rgb, vec3(0.2126, 0.7152, 0.0722));
+      float w = 1.0 + 8.0 * clamp((l - 0.8) / 0.2, 0.0, 1.0);
+      acc += w * s;
+      total += w;
+    }
+  } else {
+    float span = radians(u_amount * 0.75);
+    vec2 centre = vec2(u_size) / 2.0;
+    vec2 p = gl_FragCoord.xy - centre;
+    for (int k = 0; k < 32; k++) {
+      float t = span * (2.0 * float(k) / 31.0 - 1.0);
+      vec2 q = centre + vec2(cos(t) * p.x - sin(t) * p.y, sin(t) * p.x + cos(t) * p.y);
+      acc += at(ivec2(floor(q)));
+      total += 1.0;
+    }
+  }
+  outColor = acc / total;
+}`
+
+/**
+ * Liquify: every pixel takes the colour at (pixel - displacement), bilinear between pixel centres and clamped
+ * at the edges, exactly like sample() in server/pipeline/liquify.py. The field comes from lib/liquify.ts.
+ */
+export const LIQUIFY_FRAG = `${HEADER}
+uniform sampler2D u_src;
+uniform sampler2D u_field;     // RG32F displacement in pixels
+uniform ivec2 u_size;
+
+vec4 at(ivec2 p) { return texelFetch(u_src, clamp(p, ivec2(0), u_size - 1), 0); }
+
+void main() {
+  ivec2 ip = ivec2(gl_FragCoord.xy);
+  vec2 q = vec2(ip) - texelFetch(u_field, ip, 0).rg;
+  vec2 fl = floor(q);
+  vec2 t = q - fl;
+  ivec2 i0 = ivec2(fl);
+  outColor = mix(mix(at(i0), at(i0 + ivec2(1, 0)), t.x), mix(at(i0 + ivec2(0, 1)), at(i0 + ivec2(1, 1)), t.x), t.y);
+}`
+
 /** Stage 10: blend toward the blur, but not across edges. */
 export const NOISE_FRAG = `${HEADER}
 uniform sampler2D u_src;
@@ -275,6 +342,7 @@ uniform int u_maskKind;        // 1 linear, 2 radial, 3 painted
 uniform vec4 u_mask;           // x0, y0, x1, y1 in full-resolution canvas pixels
 uniform int u_maskInvert;
 uniform float u_preview;       // preview scale (preview px per full px)
+uniform int u_tone;            // 0 all, 1 shadows, 2 midtones, 3 highlights
 
 void main() {
   ivec2 ip = ivec2(gl_FragCoord.xy);
@@ -298,7 +366,14 @@ void main() {
       mix(texelFetch(u_after, clamp(i0 + ivec2(0, 1), ivec2(0), sz - 1), 0), texelFetch(u_after, clamp(i0 + ivec2(1, 1), ivec2(0), sz - 1), 0), t.x),
       t.y);
   } else copy = texelFetch(u_after, ip, 0);
-  outColor = mix(texelFetch(u_before, ip, 0), copy, v);
+  vec4 before = texelFetch(u_before, ip, 0);
+  if (u_tone != 0) {
+    // the same curves as tone_weight in server/pipeline/render.py
+    float l = dot(before.rgb, vec3(0.2126, 0.7152, 0.0722));
+    float c = 2.0 * l - 1.0;
+    v *= u_tone == 1 ? 1.0 - smoothstep(0.0, 0.55, l) : u_tone == 3 ? smoothstep(0.45, 1.0, l) : clamp(1.0 - c * c, 0.0, 1.0);
+  }
+  outColor = mix(before, copy, v);
 }`
 
 /**
@@ -307,7 +382,8 @@ void main() {
 export const SELECT_FRAG = `${HEADER}
 uniform sampler2D u_before;
 uniform sampler2D u_after;
-uniform int u_kind;            // 0 rect, 1 ellipse, 2 polygon
+uniform int u_kind;            // 0 rect, 1 ellipse, 2 polygon, 3 magic wand (u_wand)
+uniform sampler2D u_wand;      // the wand's area (already feathered), at preview size
 uniform vec4 u_rect;           // x, y, w, h in full-resolution canvas pixels
 uniform vec2 u_pts[128];
 uniform int u_n;
@@ -342,7 +418,7 @@ void main() {
       ? max(abs(p.x - c.x) - h.x, abs(p.y - c.y) - h.y)
       : (length((p - c) / h) - 1.0) * min(h.x, h.y);
   }
-  float v = clamp(0.5 - sd / max(u_feather, 1.0), 0.0, 1.0);
+  float v = u_kind == 3 ? texelFetch(u_wand, ip, 0).r : clamp(0.5 - sd / max(u_feather, 1.0), 0.0, 1.0);
   if (u_invert == 1) v = 1.0 - v;
   outColor = mix(before, after, v);
 }`
@@ -363,15 +439,58 @@ uniform vec4 u_mask;           // x0, y0, x1, y1 in full-resolution canvas pixel
 uniform int u_maskInvert;
 uniform float u_preview;       // preview scale (preview px per full px)
 
+uniform sampler2D u_hide;      // painted "hide" mask in layer texture pixels (R8), when u_useHide is 1
+uniform int u_useHide;
+
 vec4 layerTexel(ivec2 i) {
-  vec4 t = texelFetch(u_layer, clamp(i, ivec2(0), u_layerSize - 1), 0);
+  ivec2 j = clamp(i, ivec2(0), u_layerSize - 1);
+  vec4 t = texelFetch(u_layer, j, 0);
+  if (u_useHide == 1) t.a *= 1.0 - texelFetch(u_hide, j, 0).r; // like server/pipeline/layers.composite
   return vec4(t.rgb * t.a, t.a);
 }
 vec3 softLight(vec3 cb, vec3 cs) {
   vec3 d = mix(sqrt(cb), ((16.0 * cb - 12.0) * cb + 4.0) * cb, step(cb, vec3(0.25)));
   return mix(cb + (2.0 * cs - 1.0) * (d - cb), cb - (1.0 - 2.0 * cs) * cb * (1.0 - cb), step(cs, vec3(0.5)));
 }
+float lum(vec3 c) { return dot(c, vec3(0.3, 0.59, 0.11)); }
+vec3 clipColor(vec3 c) {
+  float l = lum(c);
+  float n = min(min(c.r, c.g), c.b);
+  float x = max(max(c.r, c.g), c.b);
+  if (n < 0.0) c = l + (c - l) * l / max(l - n, 1e-12);
+  if (x > 1.0) c = l + (c - l) * (1.0 - l) / max(x - l, 1e-12);
+  return c;
+}
+vec3 setLum(vec3 c, float l) { return clipColor(c + (l - lum(c))); }
+float sat(vec3 c) { return max(max(c.r, c.g), c.b) - min(min(c.r, c.g), c.b); }
+vec3 setSat(vec3 c, float s) {
+  float lo = min(min(c.r, c.g), c.b);
+  float span = max(max(c.r, c.g), c.b) - lo;
+  return span > 0.0 ? (c - lo) * s / span : vec3(0.0);
+}
+vec3 colorDodge(vec3 cb, vec3 cs) {
+  vec3 r = min(vec3(1.0), cb / max(1.0 - cs, vec3(1e-12)));
+  r = mix(r, vec3(1.0), step(vec3(1.0), cs));
+  return mix(r, vec3(0.0), step(cb, vec3(0.0)));
+}
+vec3 colorBurn(vec3 cb, vec3 cs) {
+  vec3 r = 1.0 - min(vec3(1.0), (1.0 - cb) / max(cs, vec3(1e-12)));
+  r = mix(r, vec3(0.0), step(cs, vec3(0.0)));
+  return mix(r, vec3(1.0), step(vec3(1.0), cb));
+}
+vec3 hardLight(vec3 cb, vec3 cs) {
+  vec3 s2 = 2.0 * cs;
+  return mix(cb + (s2 - 1.0) - cb * (s2 - 1.0), cb * s2, step(cs, vec3(0.5)));
+}
 vec3 blendRgb(vec3 cb, vec3 cs) {
+  if (u_mode == 8) return colorDodge(cb, cs);
+  if (u_mode == 9) return colorBurn(cb, cs);
+  if (u_mode == 10) return hardLight(cb, cs);
+  if (u_mode == 11) return cb + cs - 2.0 * cb * cs;
+  if (u_mode == 12) return setLum(setSat(cs, sat(cb)), lum(cb));
+  if (u_mode == 13) return setLum(setSat(cb, sat(cs)), lum(cb));
+  if (u_mode == 14) return setLum(cs, lum(cb));
+  if (u_mode == 15) return setLum(cb, lum(cs));
   if (u_mode == 1) return cb * cs;
   if (u_mode == 2) return cb + cs - cb * cs;
   if (u_mode == 3) return mix(1.0 - 2.0 * (1.0 - cb) * (1.0 - cs), 2.0 * cb * cs, step(cb, vec3(0.5)));

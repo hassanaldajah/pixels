@@ -1,6 +1,6 @@
 [package]
 name = "pixels"
-version = "0.2.1"
+version = "0.3.0"
 description = "pixels: a local-first image studio"
 authors = ["Hassan Khaled Aldajah"]
 license = "MIT"

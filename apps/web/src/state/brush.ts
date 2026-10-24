@@ -3,13 +3,16 @@ import {
   defaultAdjust,
   MAX_DABS,
   MAX_LOCAL,
+  MAX_SMUDGE,
   type Adjust,
   type LocalAdjust,
+  type SmudgeStroke,
   type Stroke,
+  type ToneRange,
 } from '../engine/types'
 import { committedState, useEdit } from './edit'
 
-export type BrushMode = 'dodge' | 'burn' | 'eyes' | 'teeth' | 'warm' | 'soft' | 'blur'
+export type BrushMode = 'dodge' | 'burn' | 'eyes' | 'teeth' | 'warm' | 'soft' | 'blur' | 'sharpen' | 'smudge'
 
 interface Preset {
   label: string
@@ -21,6 +24,10 @@ interface Preset {
       'exposure' | 'contrast' | 'highlights' | 'shadows' | 'temperature' | 'saturation' | 'vibrance' | 'blur'
     >
   >
+  /** Sharpen amount at 100% strength. */
+  sharpen?: number
+  /** Smudge: drags colour instead of changing light (a pixel operation, not an adjustment). */
+  smudge?: true
 }
 
 export const PRESETS: Record<BrushMode, Preset> = {
@@ -54,6 +61,18 @@ export const PRESETS: Record<BrushMode, Preset> = {
     hint: 'Blur where you paint: a soft background, hidden detail.',
     adjust: { blur: 6 },
   },
+  sharpen: {
+    label: 'Sharpen',
+    hint: 'Crisper detail where you paint: eyes, hair, text.',
+    adjust: {},
+    sharpen: 120,
+  },
+  smudge: {
+    label: 'Smudge',
+    hint: 'Drag colour like a finger through wet paint. Strength sets how far it carries.',
+    adjust: {},
+    smudge: true,
+  },
   soft: {
     label: 'Soften',
     hint: 'Lower the contrast where you paint.',
@@ -67,6 +86,8 @@ interface BrushStore {
   hardness: number
   flow: number
   strength: number
+  /** Which tones the painting reaches: all, shadows, midtones or highlights. */
+  tone: ToneRange
   /** The painted adjustment strokes are added to (null: the next stroke starts a new one). */
   target: string | null
   set: (patch: Partial<Omit<BrushStore, 'set'>>) => void
@@ -78,6 +99,7 @@ export const useBrush = create<BrushStore>((set) => ({
   hardness: 0.4,
   flow: 0.35,
   strength: 100,
+  tone: 'all',
   target: null,
   set: (patch) => set(patch),
 }))
@@ -93,12 +115,15 @@ export function presetAdjust(mode: BrushMode, strength: number): Adjust {
   const adjust = defaultAdjust()
   for (const [key, value] of Object.entries(PRESETS[mode].adjust))
     (adjust as unknown as Record<string, number>)[key] = Math.round(value * (strength / 100) * 100) / 100
+  const sharpen = PRESETS[mode].sharpen
+  if (sharpen)
+    adjust.sharpen = { ...adjust.sharpen, amount: Math.min(300, Math.round(sharpen * (strength / 100))) }
   return adjust
 }
 
 /** The painted adjustment strokes go to: the chosen one, or a fresh one made from the current preset. */
 export function paintedTarget(local: LocalAdjust[]): { item: LocalAdjust; created: boolean } | null {
-  const { target, mode, strength } = useBrush.getState()
+  const { target, mode, strength, tone } = useBrush.getState()
   const existing = local.find((l) => l.id === target && l.paint)
   if (existing) return { item: existing, created: false }
   if (local.length >= MAX_LOCAL) return null
@@ -109,6 +134,7 @@ export function paintedTarget(local: LocalAdjust[]): { item: LocalAdjust; create
       visible: true,
       paint: { strokes: [] },
       adjust: presetAdjust(mode, strength),
+      tone,
     },
     created: true,
   }
@@ -119,6 +145,24 @@ const dabsIn = (item: LocalAdjust): number => item.paint?.strokes.reduce((n, s) 
 /** Show the strokes while painting (no history entry), or commit them as one history step. */
 export function applyStroke(stroke: Stroke, commit: boolean): boolean {
   const state = committedState()
+  if (PRESETS[useBrush.getState().mode].smudge) {
+    // smudge drags pixels: its strokes are their own list, applied right after the clone stamp
+    const list = state.smudge ?? []
+    const dabs = list.reduce((n, s) => n + s.pts.length, 0)
+    if (stroke.erase || list.length >= MAX_SMUDGE || dabs + stroke.pts.length > MAX_DABS) return false
+    const smudgeStroke: SmudgeStroke = {
+      r: Math.min(300, stroke.r),
+      hardness: stroke.hardness,
+      strength: Math.min(1, Math.max(0.05, useBrush.getState().strength / 200)),
+      pts: stroke.pts,
+    }
+    const next = { ...state, smudge: [...list, smudgeStroke] }
+    if (commit) {
+      useEdit.getState().commit('Smudge', next)
+      endStroke()
+    } else useEdit.getState().preview(next)
+    return true
+  }
   const local = state.local ?? []
   const picked = paintedTarget(local)
   if (!picked) return false

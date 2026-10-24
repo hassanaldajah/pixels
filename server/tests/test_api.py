@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -188,3 +189,14 @@ def test_stored_image_is_a_valid_png(client: TestClient, settings: Settings) -> 
     png = next(settings.images_dir.glob("*.png"))
     with Image.open(png) as image:
         assert image.format == "PNG"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permissions")
+def test_data_directories_are_private(settings: Settings) -> None:
+    for directory in (
+        settings.data_dir,
+        settings.images_dir,
+        settings.media_dir,
+        settings.spool_dir,
+    ):
+        assert directory.stat().st_mode & 0o077 == 0, directory

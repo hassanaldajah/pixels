@@ -36,7 +36,11 @@ const safeStorage = createJSONStorage(() => ({
   },
 }))
 
+export type Mode = 'photo' | 'video'
+
 interface UiState {
+  /** Photo editing or the video editor. */
+  mode: Mode
   theme: ThemeName
   quality: Quality
   tool: string
@@ -63,6 +67,7 @@ export const DOCK_HEIGHT = { min: 160, max: 380, default: 250 }
 export const useUi = create<UiState>()(
   persist(
     (set) => ({
+      mode: 'photo',
       theme: 'dark',
       quality: 'high',
       tool: 'select',
@@ -86,6 +91,7 @@ export const useUi = create<UiState>()(
       name: 'pixels.ui',
       storage: safeStorage,
       partialize: (s) => ({
+        mode: s.mode,
         theme: s.theme,
         quality: s.quality,
         rightOpen: s.rightOpen,

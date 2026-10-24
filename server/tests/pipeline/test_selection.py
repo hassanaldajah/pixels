@@ -62,3 +62,46 @@ def test_selection_without_adjustments_changes_nothing() -> None:
     source = np.random.default_rng(3).random((6, 6, 4), dtype=np.float32)
     state = EditState(selection=Selection(kind="ellipse", x=1, y=1, w=4, h=4, feather=3))
     assert np.array_equal(render.render(source, state), source)
+
+
+def _halves() -> np.ndarray:
+    """20 x 10: left half red, right half blue, with a red square in the blue half (like lib/fill.test.ts)."""
+    px = np.zeros((10, 20, 4), np.float32)
+    px[...] = (10 / 255, 10 / 255, 250 / 255, 1.0)
+    px[:, :10] = (250 / 255, 10 / 255, 10 / 255, 1.0)
+    px[2:5, 14:17] = (250 / 255, 10 / 255, 10 / 255, 1.0)
+    return px
+
+
+def test_wand_matches_the_paint_bucket_counts() -> None:
+    img = _halves()
+    assert selection.wand_area(img, 2, 2, 10, True).sum() == 100
+    assert selection.wand_area(img, 2, 2, 10, False).sum() == 109
+    assert selection.wand_area(img, 15, 3, 10, True).sum() == 9
+    assert selection.wand_area(img, -1, 3, 10, True).sum() == 0
+
+
+def test_wand_selection_limits_edits_and_feathers() -> None:
+    img = _halves()
+    wand = Selection(kind="wand", x=2, y=2, tolerance=10)
+    m = selection.mask(wand, 20, 10, img)[..., 0]
+    assert m[5, 2] == 1 and m[5, 15] == 0
+    soft = selection.mask(wand.model_copy(update={"feather": 4}), 20, 10, img)[..., 0]
+    assert 0 < soft[5, 10] < 1
+    inv = selection.mask(wand.model_copy(update={"invert": True}), 20, 10, img)[..., 0]
+    assert inv[5, 2] == 0 and inv[5, 15] == 1
+
+
+def test_wand_handles_a_large_snaking_area_quickly() -> None:
+    import time
+
+    img = np.zeros((1200, 1200, 4), np.float32)
+    img[..., 3] = 1
+    img[::4, :] = 1.0  # white walls every 4 rows, open alternately at the left and the right
+    img[::8, -2:] = 0
+    img[4::8, :2] = 0
+    img[..., 3] = 1
+    start = time.perf_counter()
+    area = selection.wand_area(img, 5, 1, 5, True)
+    assert time.perf_counter() - start < 5
+    assert area[1197, 600] == 1  # the path snakes all the way down

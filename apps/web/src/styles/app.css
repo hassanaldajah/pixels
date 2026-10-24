@@ -447,13 +447,24 @@ button:disabled {
   color: var(--px-text2);
   cursor: pointer;
 }
+/* A long name (Arabic is often longer) wraps onto a second line instead of being cut; the line height
+   leaves room for Arabic dots and descenders. */
 .tool-label {
   font-size: 10px;
   letter-spacing: 0.01em;
-  line-height: 1;
+  line-height: 1.25;
   max-width: 100%;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+:root[dir='rtl'] .tool-label {
+  line-height: 1.4;
 }
 .tool:hover {
   background: var(--px-bg3);
@@ -1273,9 +1284,14 @@ kbd {
   background: var(--px-bg2);
   border: 1px solid var(--px-line);
 }
+/* Buttons share the row but never get narrower than their words: a longer translation wraps the row
+   instead of spilling out of its button. */
+.segmented {
+  flex-wrap: wrap;
+}
 .segmented button {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: max-content;
   padding: 5px 8px;
   border: 0;
   border-radius: calc(var(--px-radius-md) - 2px);
@@ -1294,7 +1310,11 @@ kbd {
   color: var(--px-text1);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--px-accent) 55%, transparent);
 }
+.segmented-compact {
+  flex-wrap: nowrap;
+}
 .segmented-compact button {
+  flex: 0 0 auto;
   padding: 4px 9px;
 }
 .chips {
@@ -1807,12 +1827,30 @@ kbd,
   border-radius: 8px;
 }
 
-/* Short windows (a 768 px laptop screen minus the title bar): keep all ten tools visible without scrolling. */
+/* When there are more tools than room, the rail scrolls and fades at the edge that has more,
+   so it is clear that more tools are there (ToolRail sets data-more). */
+.toolrail {
+  scrollbar-width: none;
+}
+.toolrail::-webkit-scrollbar {
+  display: none;
+}
+.toolrail[data-more='end'] {
+  mask-image: linear-gradient(180deg, black calc(100% - 44px), transparent);
+}
+.toolrail[data-more='start'] {
+  mask-image: linear-gradient(0deg, black calc(100% - 44px), transparent);
+}
+.toolrail[data-more='both'] {
+  mask-image: linear-gradient(180deg, transparent, black 44px, black calc(100% - 44px), transparent);
+}
+
+/* Short windows (a 768 px laptop screen minus the title bar): smaller tiles so most tools fit. */
 @media (max-height: 800px) {
   .toolrail {
     gap: 1px;
     padding: 6px;
-    overflow: hidden;
+    overflow: hidden auto;
   }
   .toolrail .tool {
     padding: 5px 2px 4px;
@@ -1821,7 +1859,6 @@ kbd,
   .toolrail .tool-label {
     font-size: 10px;
     letter-spacing: -0.01em;
-    text-overflow: clip;
   }
   .toolrail .tool svg {
     width: 20px;
@@ -2319,4 +2356,254 @@ kbd,
   font-size: 15px;
   font-weight: 600;
   line-height: 1;
+}
+
+/* ---------------------------------------------------------------- polish: smoother feedback everywhere
+   Only transform and opacity move (cheap for the GPU); the reduced-motion rule above turns all of it off. */
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+/* switching tools: the new panel eases in instead of popping */
+.rightpanel .tool-panel,
+.colour-panel {
+  animation: panel-in var(--px-duration-slow) var(--px-ease-out) both;
+}
+/* every small control gives the same press feedback as the main buttons */
+.chip-button:active,
+.segmented button:active:not(:disabled),
+.colour-trigger:active,
+.quick-colours button:active,
+.colour-grid button:active,
+.colour-swatches button:active,
+.colour-names li button:active {
+  transform: scale(0.94);
+}
+.chip-button:hover {
+  border-color: var(--px-line-strong);
+  color: var(--px-text1);
+}
+/* the primary action glows softly in the logo blue on hover */
+.button-primary:hover:not(:disabled) {
+  box-shadow: 0 8px 22px -10px var(--px-accent-glow);
+  filter: brightness(1.06);
+}
+.button-primary {
+  transition:
+    box-shadow var(--px-duration-base) var(--px-ease-out),
+    filter var(--px-duration-base) var(--px-ease-out),
+    transform var(--px-duration-fast) var(--px-ease-out);
+}
+/* tool icons lift a little under the pointer */
+.tool svg {
+  transition: transform var(--px-duration-base) var(--px-ease-spring);
+}
+.tool:hover:not([aria-disabled='true']) svg {
+  transform: translateY(-1px) scale(1.06);
+}
+.tool[data-active='true'] svg {
+  transform: scale(1.04);
+}
+/* slider thumbs grow while you hold them, so it is clear what you are dragging */
+.slider-track input[type='range']::-webkit-slider-thumb {
+  transition: transform var(--px-duration-fast) var(--px-ease-out);
+}
+.slider-track input[type='range']:hover::-webkit-slider-thumb,
+.slider[data-dragging='true'] .slider-track input[type='range']::-webkit-slider-thumb {
+  transform: scale(1.3);
+}
+/* focus rings fade in rather than snapping */
+:focus-visible {
+  transition: outline-offset var(--px-duration-fast) var(--px-ease-out);
+}
+
+.mode-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.v-last-step {
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--px-text3);
+}
+.v-loading {
+  grid-area: 2 / 1 / 3 / -1;
+  display: grid;
+  place-items: center;
+  color: var(--px-text2);
+}
+
+/* ---------------------------------------------------------------- recent work */
+.recent-corner {
+  position: absolute;
+  top: 14px;
+  inset-inline-end: 14px;
+  z-index: 4;
+  width: min(300px, 40%);
+}
+.recent {
+  padding: 12px;
+  border-radius: var(--px-radius-lg);
+  border: 1px solid var(--px-line);
+  display: grid;
+  gap: 8px;
+  animation: panel-in var(--px-duration-slow) var(--px-ease-out) both;
+}
+.recent h4 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--px-text2);
+}
+.recent ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.recent li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.recent-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--px-radius-md);
+  background: var(--px-bg2);
+  color: var(--px-text1);
+  cursor: pointer;
+  text-align: start;
+}
+.recent-item:hover {
+  border-color: var(--px-line-strong);
+}
+.recent-thumb {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--px-bg3);
+}
+.recent-film {
+  display: grid;
+  place-items: center;
+  color: var(--px-accent-soft);
+}
+.recent-text {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.recent-name {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recent-when {
+  font-size: 10px;
+  color: var(--px-text3);
+}
+.v-bin-recent {
+  margin-top: auto;
+  padding: 8px;
+}
+.v-bin-recent .recent {
+  background: var(--px-bg1);
+}
+
+/* ---------------------------------------------------------------- guided tour */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+.tour-dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  animation: intro-fade-plain var(--px-duration-base) ease both;
+}
+/* one lit box; its enormous shadow dims everything else */
+.tour-spot {
+  position: absolute;
+  border-radius: var(--px-radius-lg);
+  box-shadow:
+    0 0 0 2px var(--px-accent),
+    0 0 0 9999px rgba(0, 0, 0, 0.6);
+  transition:
+    left var(--px-duration-slow) var(--px-ease-out),
+    top var(--px-duration-slow) var(--px-ease-out),
+    width var(--px-duration-slow) var(--px-ease-out),
+    height var(--px-duration-slow) var(--px-ease-out);
+  pointer-events: none;
+}
+.tour-card {
+  position: absolute;
+  width: 340px;
+  max-width: calc(100vw - 16px);
+  padding: 16px 18px 14px;
+  border-radius: var(--px-radius-lg);
+  border: 1px solid var(--px-line-strong);
+  display: grid;
+  gap: 8px;
+  transition:
+    left var(--px-duration-slow) var(--px-ease-out),
+    top var(--px-duration-slow) var(--px-ease-out);
+  animation: panel-in var(--px-duration-slow) var(--px-ease-out) both;
+}
+.tour-card h3 {
+  margin: 0;
+  font-family: var(--px-font-display);
+  font-size: 16px;
+}
+.tour-card p {
+  margin: 0;
+  color: var(--px-text2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.tour-step {
+  font-size: 11px;
+  color: var(--px-accent-soft);
+}
+.tour-dots {
+  display: flex;
+  gap: 5px;
+}
+.tour-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--px-line-strong);
+  transition:
+    width var(--px-duration-base) var(--px-ease-out),
+    background var(--px-duration-base) var(--px-ease-out);
+}
+.tour-dots span[data-on='true'] {
+  width: 18px;
+  border-radius: 999px;
+  background: var(--px-accent);
+}
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
 }

@@ -11,6 +11,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
+from pipeline.blur import gaussian
 from pipeline.ops import Selection
 
 Array = NDArray[np.float32]
@@ -37,8 +38,63 @@ def _polygon_sd(
     return np.where(inside, -dist, dist)
 
 
-def mask(selection: Selection, width: int, height: int) -> Array:
-    """The selection as an (H, W, 1) array of 0..1, sampled at pixel centres of the full canvas."""
+def _row_runs(row: NDArray[np.bool_]) -> tuple[NDArray[np.int64], NDArray[np.int64]]:
+    """Starts and (exclusive) ends of the True runs in one row."""
+    edges = np.flatnonzero(np.diff(np.concatenate(([False], row, [False])).astype(np.int8)))
+    return edges[0::2], edges[1::2]
+
+
+def wand_area(image: Array, sx: float, sy: float, tolerance: float, contiguous: bool) -> Array:
+    """Pixels whose colour is close to the clicked one: 1 inside, 0 outside, (H, W) float32.
+
+    The same test as the paint bucket and the GPU preview (lib/fill.ts floodMask): colours as 8-bit RGBA,
+    squared distance at most ((tolerance / 100) * 255)^2 * 4, and 4-connected regions.
+    """
+    h, w = image.shape[:2]
+    x0, y0 = int(np.floor(sx)), int(np.floor(sy))
+    if not (0 <= x0 < w and 0 <= y0 < h):
+        return np.zeros((h, w), dtype=F32)
+    rgba = np.empty((h, w, 4), dtype=np.int32)
+    rgba[..., : image.shape[2]] = np.rint(np.clip(image, 0, 1) * 255).astype(np.int32)
+    if image.shape[2] == 3:
+        rgba[..., 3] = 255
+    diff = rgba - rgba[y0, x0]
+    distance: NDArray[np.int64] = np.einsum("ijk,ijk->ij", diff, diff)
+    close: NDArray[np.bool_] = distance <= ((tolerance / 100.0) * 255.0) ** 2 * 4
+    if not contiguous:
+        return close.astype(F32)
+    filled = np.zeros((h, w), dtype=bool)
+    runs: dict[int, tuple[NDArray[np.int64], NDArray[np.int64]]] = {}
+    stack = [(y0, x0, x0)]  # a row and the column range a neighbouring run covers
+    while stack:
+        y, a, b = stack.pop()
+        if y not in runs:
+            runs[y] = _row_runs(close[y])
+        starts, ends = runs[y]
+        for s, e in zip(
+            starts[(ends > a) & (starts <= b)], ends[(ends > a) & (starts <= b)], strict=True
+        ):
+            if filled[y, s]:
+                continue  # a run is always filled whole, so its first pixel tells
+            filled[y, s:e] = True
+            if y > 0:
+                stack.append((y - 1, int(s), int(e) - 1))
+            if y < h - 1:
+                stack.append((y + 1, int(s), int(e) - 1))
+    return filled.astype(F32)
+
+
+def mask(selection: Selection, width: int, height: int, image: Array | None = None) -> Array:
+    """The selection as an (H, W, 1) array of 0..1, sampled at pixel centres of the full canvas.
+    A wand selection needs the picture it was made on (`image`: the canvas before adjustments)."""
+    if selection.kind == "wand":
+        if image is None:
+            raise ValueError("a wand selection needs the picture")
+        area = wand_area(image, selection.x, selection.y, selection.tolerance, selection.contiguous)
+        if selection.feather > 0:
+            area = gaussian(area[..., None], selection.feather / 2.0)[..., 0]
+        value = 1.0 - area if selection.invert else area
+        return np.asarray(value, dtype=F32)[..., None]
     px, py = np.meshgrid(
         np.arange(width, dtype=np.float64) + 0.5, np.arange(height, dtype=np.float64) + 0.5
     )
@@ -61,5 +117,5 @@ def apply_inside(before: Array, after: Array, selection: Selection | None) -> Ar
     """Keep `after` inside the selection and `before` outside it."""
     if selection is None:
         return after
-    m = mask(selection, before.shape[1], before.shape[0])
+    m = mask(selection, before.shape[1], before.shape[0], before)
     return np.asarray(before + (after - before) * m, dtype=F32)

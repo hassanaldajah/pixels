@@ -20,6 +20,17 @@ const DATA_FILES = [
   'help/guide.ts',
   'state/ui.ts',
   'state/brush.ts',
+  'state/draw.ts',
+  'state/fill.ts',
+  'state/liquify.ts',
+  'video/render.ts',
+  'video/ui/Inspector.tsx',
+  'video/store.ts',
+  'video/ui/SafeZones.tsx',
+  'video/exporter.ts',
+  'video/support.ts',
+  'components/Tour.tsx',
+  'components/LayersPanel.tsx',
   'state/transform.ts',
   'state/eraser.ts',
   'state/retouch.ts',
@@ -76,7 +87,7 @@ describe('the Arabic dictionary', () => {
       if (rel.startsWith('i18n/') || /\.test\.tsx?$/.test(rel)) continue
       const source = readFileSync(file, 'utf8')
       const found = new Set<string>(tCalls(source))
-      if (rel.startsWith('components/') || rel.startsWith('viewport/'))
+      if (rel.startsWith('components/') || rel.startsWith('viewport/') || rel.startsWith('video/ui/'))
         for (const k of propStrings(source)) found.add(k)
       if (DATA_FILES.includes(rel)) for (const k of dataStrings(source)) found.add(k)
       for (const k of found) if (!(k in ar) && !NOT_WORDS.test(k)) missing.add(k)

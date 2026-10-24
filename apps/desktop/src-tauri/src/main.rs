@@ -71,9 +71,39 @@ fn resource_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     app.path().resource_dir().map_err(|e| format!("Could not find the app resources: {e}"))
 }
 
+/// The message as a JavaScript string literal: only plain printable ASCII is kept as it is, every other
+/// character (quotes, backslashes, line breaks, U+2028, non-ASCII text) becomes a \uXXXX escape.
+fn js_string(message: &str) -> String {
+    let mut out = String::with_capacity(message.len() + 2);
+    out.push('"');
+    for unit in message.encode_utf16() {
+        match unit {
+            0x20..=0x7e if unit != u16::from(b'"') && unit != u16::from(b'\\') && unit != u16::from(b'<') => {
+                out.push(char::from(unit as u8));
+            }
+            _ => out.push_str(&format!("\\u{unit:04x}")),
+        }
+    }
+    out.push('"');
+    out
+}
+
 fn show_error(window: &tauri::WebviewWindow, message: &str) {
-    let escaped = message.replace('\\', "\\\\").replace('\'', "\\'").replace('\n', " ");
-    let _ = window.eval(&format!("window.pixelsFail && window.pixelsFail('{escaped}')"));
+    let _ = window.eval(&format!("window.pixelsFail && window.pixelsFail({})", js_string(message)));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::js_string;
+
+    #[test]
+    fn messages_cannot_break_out_of_the_string() {
+        assert_eq!(js_string("ok"), "\"ok\"");
+        assert_eq!(js_string("a'b\"c\\d"), "\"a'b\\u0022c\\u005cd\"");
+        assert_eq!(js_string("line\nbreak\u{2028}"), "\"line\\u000abreak\\u2028\"");
+        assert_eq!(js_string("</script>"), "\"\\u003c/script>\"");
+        assert_eq!(js_string("مسار"), "\"\\u0645\\u0633\\u0627\\u0631\"");
+    }
 }
 
 fn start(app: tauri::AppHandle) {

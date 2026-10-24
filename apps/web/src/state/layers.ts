@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { uploadImage } from '../api/client'
-import type { Layer } from '../engine/types'
+import type { Layer, LayerSource } from '../engine/types'
 import { MAX_LAYERS } from '../engine/types'
 import { loadPixels } from '../lib/imageLoader'
 import { committedState, useEdit } from './edit'
@@ -23,7 +23,15 @@ interface PictureStore {
   select: (id: string | null) => void
   /** Load a layer's picture from the backend if it is not here yet (opening a project, undo across sessions). */
   ensure: (imageId: string) => Promise<void>
-  add: (file: File) => Promise<void>
+  /** Add a picture as a layer: centred and fitted, or at `place` (top-left corner and scale, in image pixels). */
+  add: (file: File, place?: { x: number; y: number; scale: number }, source?: LayerSource) => Promise<void>
+  /** Draw a layer again from new settings (text): a new gated picture, the same centre, scale and blend. */
+  replacePicture: (
+    id: string,
+    file: File,
+    source: LayerSource,
+    place?: { x: number; y: number; scale: number },
+  ) => Promise<void>
   clearError: () => void
 }
 
@@ -36,6 +44,42 @@ export const useLayerPictures = create<PictureStore>((set, get) => ({
   error: null,
   select: (selected) => set({ selected }),
   clearError: () => set({ error: null }),
+
+  replacePicture: async (id, file, source, place) => {
+    const old = (committedState().layers ?? []).find((l) => l.id === id)
+    if (!old) return
+    const jobId = crypto.randomUUID().replaceAll('-', '')
+    useJobs
+      .getState()
+      .upsert({ id: jobId, name: file.name, status: 'uploading', progress: 0, label: 'Uploading layer' })
+    try {
+      const result = await uploadImage(file, { jobId })
+      await get().ensure(result.id)
+      const before = get().pictures[old.image_id]
+      // keep the centre where it was, so a longer or shorter text grows evenly on both sides
+      const dx = before ? ((before.width - result.width) * old.scale) / 2 : 0
+      const dy = before ? ((before.height - result.height) * old.scale) / 2 : 0
+      const state = committedState()
+      const layers = (state.layers ?? []).map((l) =>
+        l.id === id
+          ? {
+              ...l,
+              image_id: result.id,
+              source,
+              x: Math.round(place ? place.x : l.x + dx),
+              y: Math.round(place ? place.y : l.y + dy),
+              scale: place?.scale ?? l.scale,
+              name: file.name.replace(/\.[^.]+$/, '').slice(0, 64) || l.name,
+            }
+          : l,
+      )
+      useEdit.getState().commit(source.kind === 'path' ? 'Edit path' : 'Edit text', { ...state, layers })
+      set({ error: null })
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'The layer picture could not be added.' })
+      useJobs.getState().upsert({ id: jobId, status: 'failed', progress: 1 })
+    }
+  },
 
   ensure: async (imageId) => {
     const { pictures, loading } = get()
@@ -65,7 +109,7 @@ export const useLayerPictures = create<PictureStore>((set, get) => ({
     }
   },
 
-  add: async (file) => {
+  add: async (file, place, source) => {
     const base = useImage.getState().current
     if (!base) return
     const state = committedState()
@@ -88,9 +132,10 @@ export const useLayerPictures = create<PictureStore>((set, get) => ({
         visible: true,
         opacity: 100,
         blend: 'normal',
-        scale: fit,
-        x: Math.round((base.width - result.width * fit) / 2),
-        y: Math.round((base.height - result.height * fit) / 2),
+        scale: place?.scale ?? fit,
+        x: place ? Math.round(place.x) : Math.round((base.width - result.width * fit) / 2),
+        y: place ? Math.round(place.y) : Math.round((base.height - result.height * fit) / 2),
+        ...(source ? { source } : {}),
       }
       useEdit.getState().commit('Add layer', { ...state, layers: [...(state.layers ?? []), layer] })
       set({ selected: layer.id, error: null })

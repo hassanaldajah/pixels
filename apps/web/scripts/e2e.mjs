@@ -61,7 +61,13 @@ page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`))
 const zoomText = () => page.locator('.hud span').first().innerText()
 
 await page.goto(base)
-await page.waitForSelector('.splash')
+// a busy machine (software WebGL, other tests running) can take longer than the default 30 s to start the opening
+await page.waitForSelector('.splash', { timeout: 90_000 }).catch(async (e) => {
+  // say what the page shows instead, so a failure on CI can be read from the log
+  console.error('page:', page.url(), (await page.content()).slice(0, 1500))
+  console.error('problems:', problems.join('\n'))
+  throw e
+})
 check((await page.locator('.splash').count()) === 1, 'splash is shown on first load')
 const box = await page
   .locator('.splash')
@@ -79,8 +85,8 @@ await page.waitForTimeout(900)
 await page.screenshot({ path: path.join(shots, '04-workspace-empty.png') })
 
 check(
-  (await page.locator('.topbar').count()) === 1 && (await page.locator('.toolrail .tool').count()) === 12,
-  'workspace shell and 12 tools render',
+  (await page.locator('.topbar').count()) === 1 && (await page.locator('.toolrail .tool').count()) === 15,
+  'workspace shell and 15 tools render',
 )
 check((await page.locator('.tier').count()) === 0, 'no hardware-tier badge (no AI models are used)')
 

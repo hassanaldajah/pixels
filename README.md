@@ -20,12 +20,12 @@ Every file has a `.sha256` next to it. Check the download before you run it:
 
 ```powershell
 # Windows
-certutil -hashfile pixels_0.1.1_x64-setup.exe SHA256
+certutil -hashfile pixels_0.3.0_x64-setup.exe SHA256
 ```
 
 ```bash
 # Linux
-sha256sum -c pixels_0.1.1_amd64.AppImage.sha256
+sha256sum -c pixels_0.3.0_amd64.AppImage.sha256
 ```
 
 The Windows installer is not signed (there is no paid certificate), so SmartScreen asks for confirmation the first
@@ -47,6 +47,18 @@ A clean scan is a snapshot, not a guarantee. The installer is not code-signed ye
 notice; check the `.sha256` file next to the download instead.
 
 ## What works today
+
+What changed in each version: [CHANGELOG.md](CHANGELOG.md).
+
+- **Video editor** (new in 0.3.0, Photos | Video in the top bar): a magnetic timeline with video, text and audio
+  tracks; trim, split, speed, volume and fades; keyframes for position, scale, rotation and opacity; colour and ten
+  looks; five transitions; animated titles in Arabic and English; thumbnails and waveforms; a phone frame with TikTok,
+  Reels and Shorts safe zones; MP4 export at 720p, 1080p, 2K or 4K (only the sizes the computer can encode). Every
+  video and sound file passes a media Security Gate first; decoding uses the platform's sandboxed WebCodecs.
+- **New photo tools in 0.3.0**: Draw, Pen (vector paths), Liquify, a magic wand, fill layers and a paint bucket,
+  painted layer masks, motion / lens / spin / tilt-shift blur, eight more blend modes, Sharpen and Smudge brushes,
+  brushes limited to shadows, midtones or highlights, editable text layers, Actions, a full colour picker,
+  recent work (nothing is lost if the window closes) and a guided tour.
 
 - **Security Gate**: every file is size-capped, type-checked by its real bytes, scanned for
   hidden payloads and malware, decoded in a resource-limited sandbox and re-encoded into a clean

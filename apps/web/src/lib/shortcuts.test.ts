@@ -25,7 +25,7 @@ describe('keyboard map', () => {
   })
 
   it('does not claim unknown keys', () => {
-    expect(key('q')).toBeNull()
+    expect(key('k')).toBeNull() // Ctrl+K opens the palette; plain K is free
     expect(key('Enter')).toBeNull()
   })
 })

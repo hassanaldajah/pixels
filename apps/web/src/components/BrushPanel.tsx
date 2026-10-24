@@ -1,8 +1,8 @@
-import { MAX_LOCAL } from '../engine/types'
+import { MAX_LOCAL, type ToneRange } from '../engine/types'
 import { useT } from '../i18n'
 import { PRESETS, useBrush, type BrushMode } from '../state/brush'
 import { committedState, useDisplayedState, useEdit } from '../state/edit'
-import { Slider } from './controls'
+import { Segmented, Slider } from './controls'
 
 /** The Brush tool: paint a light or colour change onto just the part of the picture you choose. */
 export function BrushPanel() {
@@ -39,6 +39,38 @@ export function BrushPanel() {
         </span>
       </label>
       <p className="hint">{t(PRESETS[brush.mode].hint)}</p>
+      {PRESETS[brush.mode].smudge ? (
+        <button
+          type="button"
+          className="button"
+          disabled={!(committedState().smudge ?? []).length}
+          onClick={() => useEdit.getState().commit('Remove smudges', { ...committedState(), smudge: [] })}
+        >
+          {t('Remove all smudges')}
+        </button>
+      ) : (
+        <Segmented<ToneRange>
+          label="Affects"
+          value={target?.tone ?? brush.tone}
+          onChange={(tone) => {
+            brush.set({ tone })
+            // the area being painted changes too, as one history step
+            if (target) {
+              const state = committedState()
+              useEdit.getState().commit('Brush tones', {
+                ...state,
+                local: (state.local ?? []).map((l) => (l.id === target.id ? { ...l, tone } : l)),
+              })
+            }
+          }}
+          options={[
+            { value: 'all', label: 'All tones', title: 'The whole painted area' },
+            { value: 'shadows', label: 'Shadows', title: 'Only the dark parts of what you paint' },
+            { value: 'midtones', label: 'Midtones', title: 'Only the middle tones of what you paint' },
+            { value: 'highlights', label: 'Highlights', title: 'Only the bright parts of what you paint' },
+          ]}
+        />
+      )}
       <Slider
         label="Size"
         value={brush.size}

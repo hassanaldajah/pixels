@@ -387,6 +387,88 @@ cases.push(
     0,
   ],
   [
+    'layer: painted mask, moved and scaled with the layer',
+    {
+      geometry: [],
+      adjust: adjust(),
+      layers: [
+        lay({
+          x: 40,
+          y: 30,
+          hide: {
+            strokes: [
+              {
+                r: 14,
+                hardness: 0.4,
+                flow: 0.9,
+                erase: false,
+                pts: [
+                  [20, 20],
+                  [40, 30],
+                  [60, 40],
+                ],
+              },
+              { r: 6, hardness: 0.8, flow: 1, erase: true, pts: [[40, 30]] },
+            ],
+          },
+        }),
+        lay({
+          id: 'layer2',
+          x: 100,
+          y: 80,
+          scale: 1.5,
+          blend: 'multiply',
+          hide: {
+            strokes: [
+              {
+                r: 10,
+                hardness: 0.2,
+                flow: 0.7,
+                erase: false,
+                pts: [
+                  [10, 10],
+                  [30, 25],
+                ],
+              },
+            ],
+          },
+        }),
+      ],
+    },
+    layered,
+    0,
+  ],
+  [
+    'layer: colour dodge, colour burn, hard light, exclusion',
+    {
+      geometry: [],
+      adjust: adjust(),
+      layers: [
+        lay({ x: 10, y: 20, blend: 'color-dodge', opacity: 70 }),
+        lay({ id: 'layer2', x: 70, y: 60, blend: 'color-burn' }),
+        lay({ id: 'layer3', x: 130, y: 30, blend: 'hard-light' }),
+        lay({ id: 'layer4', x: 40, y: 100, blend: 'exclusion', opacity: 85 }),
+      ],
+    },
+    layered,
+    0,
+  ],
+  [
+    'layer: hue, saturation, colour, luminosity',
+    {
+      geometry: [],
+      adjust: adjust(),
+      layers: [
+        lay({ x: 15, y: 15, blend: 'hue' }),
+        lay({ id: 'layer2', x: 80, y: 40, blend: 'saturation', opacity: 75 }),
+        lay({ id: 'layer3', x: 30, y: 90, blend: 'color' }),
+        lay({ id: 'layer4', x: 120, y: 70, blend: 'luminosity' }),
+      ],
+    },
+    layered,
+    0,
+  ],
+  [
     'layer: scaled 1.7 at a fractional position',
     { geometry: [], adjust: adjust(), layers: [lay({ x: 33.4, y: 21.7, scale: 1.7, opacity: 90 })] },
     layeredScaled,
@@ -418,6 +500,27 @@ cases.push(
     layered,
     2,
   ],
+  ...[
+    ['magic wand, connected, hard edge', { x: 50, y: 40, tolerance: 25, contiguous: true, feather: 0 }],
+    [
+      'magic wand, everywhere, feathered, inverted',
+      { x: 150, y: 120, tolerance: 18, contiguous: false, feather: 6, invert: true },
+    ],
+    [
+      'magic wand after a crop',
+      { x: 40, y: 30, tolerance: 30, contiguous: true, feather: 2 },
+      [{ type: 'crop', x: 20, y: 10, w: 200, h: 160 }],
+    ],
+  ].map(([name, wand, geometry = []]) => [
+    `selection: ${name}`,
+    {
+      geometry,
+      adjust: adjust({ exposure: 0.8, saturation: -40 }),
+      selection: { kind: 'wand', w: 1, h: 1, points: [], invert: false, ...wand },
+    },
+    layered,
+    2,
+  ]),
   [
     'selection: polygon (lasso) with feather',
     {
@@ -546,6 +649,25 @@ cases.push(
   ],
   ['blur (global)', { geometry: [], adjust: adjust({ blur: 5, saturation: 10 }) }, spatial, 0],
   [
+    'motion blur at 30 degrees',
+    { geometry: [], adjust: adjust({ blur: 4, blur_kind: 'motion', blur_angle: 30 }) },
+    spatial,
+    0,
+  ],
+  [
+    'motion blur, vertical',
+    { geometry: [], adjust: adjust({ blur: 3, blur_kind: 'motion', blur_angle: 90 }) },
+    spatial,
+    0,
+  ],
+  [
+    'lens blur (bokeh)',
+    { geometry: [], adjust: adjust({ blur: 6, blur_kind: 'lens', exposure: 0.5 }) },
+    spatial,
+    0,
+  ],
+  ['spin blur', { geometry: [], adjust: adjust({ blur: 10, blur_kind: 'spin' }) }, spatial, 0],
+  [
     'blur (large) through a radial filter',
     {
       geometry: [],
@@ -606,6 +728,161 @@ cases.push(
       ],
     },
     layered,
+    2,
+  ],
+  [
+    'brush: dodge the highlights, burn the shadows, lift the midtones',
+    {
+      geometry: [],
+      adjust: adjust(),
+      local: [
+        [
+          'tonehi01',
+          'highlights',
+          { exposure: 0.9 },
+          [
+            [40, 40],
+            [200, 160],
+          ],
+        ],
+        [
+          'tonesh01',
+          'shadows',
+          { exposure: -0.9 },
+          [
+            [200, 40],
+            [40, 160],
+          ],
+        ],
+        [
+          'tonemd01',
+          'midtones',
+          { contrast: 30, saturation: 25 },
+          [
+            [60, 100],
+            [180, 100],
+          ],
+        ],
+      ].map(([id, tone, change, [a, b]]) => ({
+        id,
+        name: tone,
+        visible: true,
+        tone,
+        paint: {
+          strokes: [
+            {
+              r: 40,
+              hardness: 0.4,
+              flow: 0.7,
+              erase: false,
+              pts: [a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b],
+            },
+          ],
+        },
+        adjust: adjust(change),
+      })),
+    },
+    layered,
+    2,
+  ],
+  [
+    'smudge: two strokes, one after a crop',
+    {
+      geometry: [{ type: 'crop', x: 10, y: 10, w: 220, h: 170 }],
+      adjust: adjust({ contrast: 10 }),
+      smudge: [
+        {
+          r: 12,
+          hardness: 0.5,
+          strength: 0.7,
+          pts: Array.from({ length: 30 }, (_, i) => [40 + i * 3.3, 60 + i * 1.7]),
+        },
+        {
+          r: 6,
+          hardness: 0.9,
+          strength: 0.4,
+          pts: Array.from({ length: 20 }, (_, i) => [150 - i * 2, 40 + i * 4]),
+        },
+      ],
+    },
+    spatial,
+    2,
+  ],
+  [
+    'liquify: push, bloat, pinch and restore after a crop',
+    {
+      geometry: [{ type: 'crop', x: 8, y: 6, w: 224, h: 172 }],
+      adjust: adjust({ saturation: 15 }),
+      liquify: [
+        {
+          mode: 'push',
+          r: 30,
+          strength: 0.7,
+          pts: Array.from({ length: 12 }, (_, i) => [50 + i * 4, 80 + i * 1.5]),
+        },
+        {
+          mode: 'bloat',
+          r: 40,
+          strength: 0.6,
+          pts: [
+            [150, 70],
+            [150, 70],
+            [150, 70],
+          ],
+        },
+        {
+          mode: 'pinch',
+          r: 25,
+          strength: 0.8,
+          pts: [
+            [90, 140],
+            [92, 141],
+          ],
+        },
+        {
+          mode: 'restore',
+          r: 20,
+          strength: 0.5,
+          pts: [
+            [70, 85],
+            [75, 86],
+          ],
+        },
+      ],
+    },
+    spatial,
+    2,
+  ],
+  [
+    'brush: sharpen preset painted locally',
+    {
+      geometry: [],
+      adjust: adjust(),
+      local: [
+        {
+          id: 'sharp001',
+          name: 'Sharpen',
+          visible: true,
+          paint: {
+            strokes: [
+              {
+                r: 30,
+                hardness: 0.5,
+                flow: 0.8,
+                erase: false,
+                pts: [
+                  [60, 60],
+                  [120, 90],
+                  [180, 110],
+                ],
+              },
+            ],
+          },
+          adjust: adjust({ sharpen: { amount: 120, radius: 1, threshold: 0 } }),
+        },
+      ],
+    },
+    spatial,
     2,
   ],
   [

@@ -70,6 +70,14 @@ class Settings(BaseSettings):
     clamav_required: bool = False
     scrub_lsb: bool = False  # rewrite the lowest bit of every pixel to destroy LSB steganography
 
+    # --- video and audio -------------------------------------------------------------------
+    max_media_bytes: int = (
+        8 * GIB
+    )  # 4K camera footage is large; the body is streamed, never buffered
+    max_media_seconds: float = 6 * 3600
+    max_video_edge: int = 8192
+    media_retention_days: int = 30
+
     @model_validator(mode="after")
     def _check_network(self) -> Self:
         if self.host not in LOOPBACK_HOSTS and not self.lan:
@@ -84,6 +92,10 @@ class Settings(BaseSettings):
     @property
     def images_dir(self) -> Path:
         return self.data_dir / "images"
+
+    @property
+    def media_dir(self) -> Path:
+        return self.data_dir / "media"
 
     @property
     def spool_dir(self) -> Path:
@@ -102,5 +114,9 @@ class Settings(BaseSettings):
         return origins
 
     def ensure_dirs(self) -> None:
-        for directory in (self.data_dir, self.images_dir, self.spool_dir):
+        for directory in (self.data_dir, self.images_dir, self.media_dir, self.spool_dir):
             directory.mkdir(parents=True, exist_ok=True)
+            if os.name == "posix":
+                # Linux and macOS: pictures, videos and the security log are readable by this user only
+                # (the default 0755 would let every other account on the machine read them)
+                directory.chmod(0o700)

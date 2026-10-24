@@ -44,6 +44,8 @@ async def system(request: Request) -> dict[str, Any]:
         "limits": {
             "max_file_bytes": state.settings.max_file_bytes,
             "max_batch_files": state.settings.max_batch_files,
+            "max_media_bytes": state.settings.max_media_bytes,
+            "max_media_seconds": state.settings.max_media_seconds,
         },
     }
 

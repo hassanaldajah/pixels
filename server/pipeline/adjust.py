@@ -14,7 +14,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from pipeline import curves
-from pipeline.blur import gaussian
+from pipeline.blur import apply_kind, gaussian
 from pipeline.color import (
     F32,
     hsl_to_rgb,
@@ -204,8 +204,10 @@ def apply(rgba: Array, a: Adjust, scale: float = 1.0) -> Array:
     if has_point_adjustments(a):
         rgb = point_stage(rgb, a)
     rgb = noise_reduction(rgb, a.noise_reduction, scale)
-    if a.blur > 0:  # stage 10b: plain Gaussian blur (soften, background blur)
-        rgb = gaussian(rgb, a.blur * scale)
+    if a.blur > 0:  # stage 10b: Gaussian, motion, lens or spin blur
+        # spin is an angle, so it does not shrink with the preview scale; the others are distances
+        size = a.blur if a.blur_kind == "spin" else a.blur * scale
+        rgb = apply_kind(rgb, a.blur_kind, size, a.blur_angle)
     rgb = sharpen(rgb, a.sharpen.amount, a.sharpen.radius, a.sharpen.threshold, scale)
     rgb = vignette(rgb, a.vignette.amount, a.vignette.midpoint, a.vignette.feather)
     rgb = grain(rgb, a.grain.amount, a.grain.size, a.grain.seed, scale)

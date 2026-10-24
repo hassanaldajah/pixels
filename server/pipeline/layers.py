@@ -12,7 +12,7 @@ from collections.abc import Callable
 import numpy as np
 from numpy.typing import NDArray
 
-from pipeline import geometry
+from pipeline import geometry, paint
 from pipeline.errors import PublicError
 from pipeline.ops import Layer, LayerMask
 
@@ -69,8 +69,84 @@ def _soft_light(cb: Array, cs: Array) -> Array:
     )
 
 
+def _lum(c: Array) -> Array:
+    return np.asarray(
+        F32(0.3) * c[..., 0:1] + F32(0.59) * c[..., 1:2] + F32(0.11) * c[..., 2:3], dtype=F32
+    )
+
+
+def _clip_color(c: Array) -> Array:
+    lum = _lum(c)
+    lo = np.min(c, axis=-1, keepdims=True)
+    hi = np.max(c, axis=-1, keepdims=True)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        c = np.where(lo < 0, lum + (c - lum) * lum / np.where(lum - lo == 0, 1, lum - lo), c)
+        c = np.where(hi > 1, lum + (c - lum) * (1 - lum) / np.where(hi - lum == 0, 1, hi - lum), c)
+    return np.asarray(c, dtype=F32)
+
+
+def _set_lum(c: Array, lum: Array) -> Array:
+    return _clip_color(c + (lum - _lum(c)))
+
+
+def _sat(c: Array) -> Array:
+    return np.asarray(
+        np.max(c, axis=-1, keepdims=True) - np.min(c, axis=-1, keepdims=True), dtype=F32
+    )
+
+
+def _set_sat(c: Array, s: Array) -> Array:
+    lo = np.min(c, axis=-1, keepdims=True)
+    span = np.max(c, axis=-1, keepdims=True) - lo
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.asarray(
+            np.where(span > 0, (c - lo) * s / np.where(span > 0, span, 1), 0), dtype=F32
+        )
+
+
+def _color_dodge(cb: Array, cs: Array) -> Array:
+    with np.errstate(divide="ignore", invalid="ignore"):
+        out = np.minimum(F32(1), cb / np.where(cs < 1, F32(1) - cs, 1))
+    return np.asarray(np.where(cb <= 0, 0, np.where(cs >= 1, 1, out)), dtype=F32)
+
+
+def _color_burn(cb: Array, cs: Array) -> Array:
+    with np.errstate(divide="ignore", invalid="ignore"):
+        out = F32(1) - np.minimum(F32(1), (F32(1) - cb) / np.where(cs > 0, cs, 1))
+    return np.asarray(np.where(cb >= 1, 1, np.where(cs <= 0, 0, out)), dtype=F32)
+
+
+def _hard_light(cb: Array, cs: Array) -> Array:
+    s2 = F32(2) * cs
+    return np.asarray(
+        np.where(cs <= 0.5, cb * s2, cb + (s2 - F32(1)) - cb * (s2 - F32(1))), dtype=F32
+    )
+
+
+NON_SEPARABLE = {"hue", "saturation", "color", "luminosity"}
+
+
 def blend_rgb(mode: str, cb: Array, cs: Array) -> Array:
-    """B(Cb, Cs) from the W3C Compositing and Blending spec, on straight (non-premultiplied) colour."""
+    """B(Cb, Cs) from the W3C Compositing and Blending spec, on straight (non-premultiplied) colour.
+
+    Separable modes work per channel; hue, saturation, color and luminosity need RGB in the last axis.
+    """
+    if mode == "color-dodge":
+        return _color_dodge(cb, cs)
+    if mode == "color-burn":
+        return _color_burn(cb, cs)
+    if mode == "hard-light":
+        return _hard_light(cb, cs)
+    if mode == "exclusion":
+        return np.asarray(cb + cs - F32(2) * cb * cs, dtype=F32)
+    if mode == "hue":
+        return _set_lum(_set_sat(cs, _sat(cb)), _lum(cb))
+    if mode == "saturation":
+        return _set_lum(_set_sat(cb, _sat(cs)), _lum(cb))
+    if mode == "color":
+        return _set_lum(cs, _lum(cb))
+    if mode == "luminosity":
+        return _set_lum(cb, _lum(cs))
     if mode == "normal":
         return cs
     if mode == "multiply":
@@ -113,7 +189,12 @@ def composite(base: Array, layers: list[Layer], load: LayerLoader | None) -> Arr
     height, width = base.shape[:2]
     out = base
     for layer in visible:
-        placed = place(load(layer.image_id), layer, width, height)
+        source = load(layer.image_id)
+        if layer.hide is not None and layer.hide.strokes:
+            source = source.copy()
+            sh, sw = source.shape[:2]
+            source[..., 3:4] *= F32(1) - paint.mask(layer.hide, sw, sh)
+        placed = place(source, layer, width, height)
         if layer.mask is not None:
             placed = placed.copy()
             placed[..., 3:4] *= mask_values(layer.mask, width, height)

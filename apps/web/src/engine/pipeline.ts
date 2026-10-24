@@ -3,6 +3,10 @@
  * geometry passes, then the point adjustments, noise reduction, and the sharpen/vignette/grain
  * finish. The server renders the same state with NumPy for the export (docs/PIPELINE.md).
  */
+import { lensTaps, motionTaps } from './blurTaps'
+import { floodMask } from '../lib/fill'
+import { liquifyField } from '../lib/liquify'
+import { smudge } from '../lib/smudge'
 import { curveLut } from './curves'
 import { paintKey, rasterisePaint } from '../lib/paintMask'
 import { hexToFill, invert, plan, scaleOp, type Mat3 } from './geometry'
@@ -11,6 +15,8 @@ import {
   MIX_FRAG,
   SELECT_FRAG,
   BLUR_FRAG,
+  SHAPED_BLUR_FRAG,
+  LIQUIFY_FRAG,
   FINISH_FRAG,
   FULLSCREEN_VERT,
   GEOMETRY_FRAG,
@@ -19,6 +25,7 @@ import {
 } from './shaders'
 import {
   BLEND_MODES,
+  TONES,
   HSL_CENTERS,
   hasPointAdjustments,
   isIdentityCurve,
@@ -30,6 +37,8 @@ import {
   type LocalAdjust,
   type Paint,
   type Selection,
+  type SmudgeStroke,
+  type LiquifyStroke,
 } from './types'
 
 export interface RenderResult {
@@ -105,7 +114,16 @@ class Program {
 
 export class GpuPipeline {
   private readonly programs: Record<
-    'geometry' | 'point' | 'blur' | 'noise' | 'finish' | 'blend' | 'select' | 'mix',
+    | 'geometry'
+    | 'point'
+    | 'blur'
+    | 'shapedBlur'
+    | 'liquify'
+    | 'noise'
+    | 'finish'
+    | 'blend'
+    | 'select'
+    | 'mix',
     Program
   >
   private readonly framebuffer: WebGLFramebuffer
@@ -116,6 +134,9 @@ export class GpuPipeline {
   private fullSize = { w: 1, h: 1 }
   private last: RenderResult | null = null
   private paintTextures = new Map<string, { texture: WebGLTexture; key: string }>()
+  private wandCache: { key: string; rgba: Uint8Array } | null = null
+  private smudgeCache: { key: string; rgba: Uint8Array } | null = null
+  private liquifyCache: { key: string; texture: WebGLTexture } | null = null
   private layerTextures = new Map<
     string,
     { texture: WebGLTexture; w: number; h: number; fullW: number; fullH: number }
@@ -128,6 +149,8 @@ export class GpuPipeline {
       geometry: new Program(gl, GEOMETRY_FRAG),
       point: new Program(gl, POINT_FRAG),
       blur: new Program(gl, BLUR_FRAG),
+      shapedBlur: new Program(gl, SHAPED_BLUR_FRAG),
+      liquify: new Program(gl, LIQUIFY_FRAG),
       noise: new Program(gl, NOISE_FRAG),
       finish: new Program(gl, FINISH_FRAG),
       blend: new Program(gl, BLEND_FRAG),
@@ -161,6 +184,8 @@ export class GpuPipeline {
     this.source = { texture, w: bitmap.width, h: bitmap.height }
     this.fullSize = { w: fullW, h: fullH }
     this.last = null
+    this.wandCache = null
+    this.smudgeCache = null
   }
 
   /** Upload a layer's picture (possibly downscaled: `fullW`/`fullH` are its real size). */
@@ -331,6 +356,29 @@ export class GpuPipeline {
     return out
   }
 
+  /** Motion, lens or spin blur. Spin is an angle, so it does not shrink with the preview scale. */
+  private shapedBlur(input: Pooled, a: Adjust, f: number): Pooled {
+    const { gl } = this
+    const p = this.programs.shapedBlur
+    const out = this.acquire(input.w, input.h, input.format)
+    const kind = a.blur_kind ?? 'gaussian'
+    this.pass(p, out, () => {
+      this.bindTexture(0, input.texture, p, 'u_src')
+      gl.uniform2i(p.loc('u_size'), input.w, input.h)
+      p.i('u_kind', kind === 'motion' ? 1 : kind === 'lens' ? 2 : 3)
+      p.f('u_amount', a.blur)
+      const taps =
+        kind === 'motion'
+          ? motionTaps(a.blur * f, a.blur_angle ?? 0)
+          : kind === 'lens'
+            ? lensTaps(a.blur * f * 1.5)
+            : []
+      if (taps.length) gl.uniform2iv(p.loc('u_taps'), new Int32Array(taps.flat()))
+      p.i('u_count', taps.length)
+    })
+    return out
+  }
+
   private blur(input: Pooled, sigma: number): Pooled {
     const { gl } = this
     const p = this.programs.blur
@@ -401,9 +449,15 @@ export class GpuPipeline {
     const k = fl / (layer.scale * preview)
     const inv = [k, 0, (-layer.x * fl) / layer.scale, 0, k, (-layer.y * fl) / layer.scale, 0, 0, 1] as const
     const columns = new Float32Array([inv[0], inv[3], inv[6], inv[1], inv[4], inv[7], inv[2], inv[5], inv[8]])
+    // the hide strokes are in full-size layer pixels; rasterise them at the layer texture's size
+    const hide = layer.hide?.strokes.length
+      ? this.paintTexture(`hide-${layer.id}`, layer.hide, tex.w, tex.h, fl)
+      : null
     this.pass(p, out, () => {
       this.bindTexture(0, input.texture, p, 'u_base')
       this.bindTexture(1, tex.texture, p, 'u_layer')
+      this.bindTexture(2, hide ?? tex.texture, p, 'u_hide')
+      p.i('u_useHide', hide ? 1 : 0)
       gl.uniform2i(p.loc('u_layerSize'), tex.w, tex.h)
       gl.uniformMatrix3fv(p.loc('u_inv'), false, columns)
       p.f('u_opacity', layer.opacity / 100)
@@ -433,7 +487,8 @@ export class GpuPipeline {
     }
     if (needsBlur) {
       const base: Pooled = stage ?? this.copyTo(input)
-      const blurred = this.blur(base, a.blur * f)
+      const kind = a.blur_kind ?? 'gaussian'
+      const blurred = kind === 'gaussian' ? this.blur(base, a.blur * f) : this.shapedBlur(base, a, f)
       base.busy = false
       stage = blurred
     }
@@ -467,6 +522,7 @@ export class GpuPipeline {
       p.i('u_maskInvert', mask?.invert ? 1 : 0)
       p.i('u_useShift', 0)
       p.f('u_preview', preview)
+      p.i('u_tone', TONES.indexOf(local.tone ?? 'all'))
     })
     return out
   }
@@ -503,6 +559,7 @@ export class GpuPipeline {
       p.i('u_useShift', 1)
       gl.uniform2f(p.loc('u_shift'), stroke.dx * preview, stroke.dy * preview)
       p.f('u_preview', preview)
+      p.i('u_tone', 0) // the program is shared with mixPass: uniforms keep their last value
     })
     return out
   }
@@ -525,9 +582,132 @@ export class GpuPipeline {
     return texture
   }
 
-  /** Keep the adjusted picture inside the selection and the original outside it. */
-  private selectPass(before: Pooled, after: Pooled, sel: Selection, preview: number): Pooled {
+  /**
+   * The magic wand's area on `before` (the canvas before adjustments): read back once, filled with the same
+   * test as the paint bucket (lib/fill.ts, mirrored by server/pipeline/selection.py), then cached until the
+   * click, the tolerance or the picture itself (`contentKey`) changes. Feathered with the shared Gaussian.
+   */
+  private wandArea(before: Pooled, sel: Selection, preview: number, contentKey: string): Pooled {
     const { gl } = this
+    const key = JSON.stringify([
+      sel.x,
+      sel.y,
+      sel.tolerance,
+      sel.contiguous,
+      before.w,
+      before.h,
+      preview,
+      contentKey,
+    ])
+    if (this.wandCache?.key !== key) {
+      const readable = before.format === 'rgba8' ? before : this.quantise(before)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, readable.texture, 0)
+      const pixels = new Uint8Array(before.w * before.h * 4)
+      gl.readPixels(0, 0, before.w, before.h, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      if (readable !== before) readable.busy = false
+      const { mask } = floodMask(
+        new Uint8ClampedArray(pixels.buffer),
+        before.w,
+        before.h,
+        sel.x * preview,
+        sel.y * preview,
+        sel.tolerance ?? 20,
+        sel.contiguous ?? true,
+      )
+      const rgba = new Uint8Array(mask.length * 4)
+      for (let i = 0; i < mask.length; i++) rgba.fill(mask[i] as number, i * 4, i * 4 + 4)
+      this.wandCache = { key, rgba }
+    }
+    const area = this.acquire(before.w, before.h, 'rgba8')
+    gl.bindTexture(gl.TEXTURE_2D, area.texture)
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      0,
+      0,
+      before.w,
+      before.h,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      this.wandCache.rgba,
+    )
+    if (sel.feather <= 0) return area
+    const soft = this.blur(area, (sel.feather / 2) * preview)
+    area.busy = false
+    return soft
+  }
+
+  /** Liquify: the field is built on the CPU (lib/liquify.ts) and cached; the GPU resamples the picture with it. */
+  private liquifyPass(input: Pooled, strokes: LiquifyStroke[], preview: number, contentKey: string): Pooled {
+    const { gl } = this
+    const key = JSON.stringify([strokes, input.w, input.h, preview, contentKey])
+    if (this.liquifyCache?.key !== key) {
+      const data = liquifyField(strokes, input.w, input.h, preview)
+      const texture = this.liquifyCache?.texture ?? gl.createTexture()
+      if (!texture) throw new Error('Could not create a texture')
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, input.w, input.h, 0, gl.RG, gl.FLOAT, data)
+      this.setNearest(texture)
+      this.liquifyCache = { key, texture }
+    }
+    const out = this.acquire(input.w, input.h, input.format)
+    const p = this.programs.liquify
+    this.pass(p, out, () => {
+      this.bindTexture(0, input.texture, p, 'u_src')
+      this.bindTexture(1, this.liquifyCache!.texture, p, 'u_field')
+      gl.uniform2i(p.loc('u_size'), input.w, input.h)
+    })
+    return out
+  }
+
+  /**
+   * Smudge strokes, run on the CPU with lib/smudge.ts (the same steps as server/pipeline/smudge.py) on the
+   * picture read back after geometry and clone. Cached until the strokes or the picture change.
+   */
+  private smudgePass(base: Pooled, strokes: SmudgeStroke[], preview: number, contentKey: string): Pooled {
+    const { gl } = this
+    const key = JSON.stringify([strokes, base.w, base.h, preview, contentKey])
+    if (this.smudgeCache?.key !== key) {
+      const pixels = this.readBack(base)
+      const rgba = new Float32Array(pixels.length)
+      for (let i = 0; i < pixels.length; i++) rgba[i] = (pixels[i] as number) / 255
+      smudge(rgba, base.w, base.h, strokes, preview)
+      const out = new Uint8Array(rgba.length)
+      for (let i = 0; i < rgba.length; i++)
+        out[i] = Math.round(Math.min(1, Math.max(0, rgba[i] as number)) * 255)
+      this.smudgeCache = { key, rgba: out }
+    }
+    const result = this.acquire(base.w, base.h, 'rgba8')
+    gl.bindTexture(gl.TEXTURE_2D, result.texture)
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, base.w, base.h, gl.RGBA, gl.UNSIGNED_BYTE, this.smudgeCache.rgba)
+    return result
+  }
+
+  /** A pooled texture's pixels as RGBA bytes (row 0 is the image's top row). */
+  private readBack(tex: Pooled): Uint8Array {
+    const { gl } = this
+    const readable = tex.format === 'rgba8' ? tex : this.quantise(tex)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, readable.texture, 0)
+    const pixels = new Uint8Array(tex.w * tex.h * 4)
+    gl.readPixels(0, 0, tex.w, tex.h, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    if (readable !== tex) readable.busy = false
+    return pixels
+  }
+
+  /** Keep the adjusted picture inside the selection and the original outside it. */
+  private selectPass(
+    before: Pooled,
+    after: Pooled,
+    sel: Selection,
+    preview: number,
+    contentKey = '',
+  ): Pooled {
+    const { gl } = this
+    const wand = sel.kind === 'wand' ? this.wandArea(before, sel, preview, contentKey) : null
     const out = this.acquire(after.w, after.h, 'rgba8')
     const p = this.programs.select
     const pts = new Float32Array(256)
@@ -538,7 +718,8 @@ export class GpuPipeline {
     this.pass(p, out, () => {
       this.bindTexture(0, before.texture, p, 'u_before')
       this.bindTexture(1, after.texture, p, 'u_after')
-      p.i('u_kind', sel.kind === 'rect' ? 0 : sel.kind === 'ellipse' ? 1 : 2)
+      this.bindTexture(2, (wand ?? after).texture, p, 'u_wand')
+      p.i('u_kind', sel.kind === 'rect' ? 0 : sel.kind === 'ellipse' ? 1 : sel.kind === 'wand' ? 3 : 2)
       gl.uniform4f(p.loc('u_rect'), sel.x, sel.y, Math.max(sel.w, 1e-6), Math.max(sel.h, 1e-6))
       gl.uniform2fv(p.loc('u_pts'), pts)
       p.i('u_n', Math.min(sel.points.length, 128))
@@ -546,6 +727,7 @@ export class GpuPipeline {
       p.i('u_invert', sel.invert ? 1 : 0)
       p.f('u_preview', preview)
     })
+    if (wand) wand.busy = false
     return out
   }
 
@@ -583,13 +765,18 @@ export class GpuPipeline {
       currentPooled = next
       current = next
     }
-    const geometryPooled: Pooled = currentPooled ?? {
+    const geometryOut: Pooled = currentPooled ?? {
       texture: this.source.texture,
       w: this.source.w,
       h: this.source.h,
       format: 'rgba8',
       busy: true,
     }
+    // liquify reshapes first; clone and smudge then work on the reshaped picture (as on the server)
+    const geometryPooled: Pooled = state.liquify?.length
+      ? this.liquifyPass(geometryOut, state.liquify, f, JSON.stringify(state.geometry))
+      : geometryOut
+    if (geometryPooled !== geometryOut && currentPooled) currentPooled.busy = false
     const a = state.adjust
 
     // clone stamp: retouched pixels become the base the adjustments run on
@@ -599,10 +786,26 @@ export class GpuPipeline {
       if (base !== geometryPooled) base.busy = false
       base = next
     })
+    if (state.smudge?.length) {
+      const smudged = this.smudgePass(
+        base,
+        state.smudge,
+        f,
+        JSON.stringify([state.geometry, state.clone ?? []]),
+      )
+      if (base !== geometryPooled) base.busy = false
+      base = smudged
+    }
 
     let adjusted: Pooled = this.adjustChain(base, a, f)
     if (state.selection && adjusted !== base) {
-      const masked = this.selectPass(base, adjusted, state.selection, f)
+      const masked = this.selectPass(
+        base,
+        adjusted,
+        state.selection,
+        f,
+        JSON.stringify([state.geometry, state.clone ?? []]),
+      )
       adjusted.busy = false
       adjusted = masked
     }
@@ -695,6 +898,8 @@ export class GpuPipeline {
     for (const t of this.layerTextures.values()) gl.deleteTexture(t.texture)
     for (const t of this.paintTextures.values()) gl.deleteTexture(t.texture)
     this.paintTextures.clear()
+    if (this.liquifyCache) gl.deleteTexture(this.liquifyCache.texture)
+    this.liquifyCache = null
     this.layerTextures.clear()
     if (this.source) gl.deleteTexture(this.source.texture)
     gl.deleteTexture(this.lutTexture)

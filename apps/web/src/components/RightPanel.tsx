@@ -4,9 +4,14 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useT } from '../i18n'
 import { useImage } from '../state/image'
 import { useUi } from '../state/ui'
+import { ActionsPanel } from './ActionsPanel'
 import { AdjustPanel } from './AdjustPanel'
 import { BrushPanel } from './BrushPanel'
 import { ClonePanel } from './ClonePanel'
+import { DrawPanel } from './DrawPanel'
+import { FillPanel } from './FillPanel'
+import { LiquifyPanel } from './LiquifyPanel'
+import { PenPanel } from './PenPanel'
 import { EraserPanel } from './EraserPanel'
 import { HistoryPanel } from './HistoryPanel'
 import { LayersPanel } from './LayersPanel'
@@ -184,6 +189,9 @@ export function RightPanel() {
           {image && tool === 'adjust' && <AdjustPanel />}
           {image && tool === 'eraser' && <EraserPanel />}
           {image && tool === 'brush' && <BrushPanel />}
+          {image && tool === 'draw' && <DrawPanel />}
+          {image && tool === 'liquify' && <LiquifyPanel />}
+          {image && tool === 'path' && <PenPanel />}
           {image && tool === 'lasso' && (
             <div className="tool-panel">
               <div className="tool-panel-head">
@@ -244,8 +252,14 @@ export function RightPanel() {
           <Section title="Text & shapes" defaultOpen={false}>
             <TextShapePanel />
           </Section>
+          <Section title="Fill" defaultOpen={false}>
+            <FillPanel />
+          </Section>
           <Section title="Layers" defaultOpen={false}>
             <LayersPanel />
+          </Section>
+          <Section title="Actions" defaultOpen={false}>
+            <ActionsPanel />
           </Section>
           <Section title="History" defaultOpen>
             <HistoryPanel />

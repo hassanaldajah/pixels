@@ -45,6 +45,14 @@ interface ImageState {
 
 const newJobId = (): string => crypto.randomUUID().replaceAll('-', '')
 
+/** The same advice (for example that ClamAV is not running) is shown once per session, not on every picture. */
+const shownNotices = new Set<string>()
+function freshNotices(notices: string[]): string[] {
+  const fresh = notices.filter((n) => !shownNotices.has(n))
+  for (const n of fresh) shownNotices.add(n)
+  return fresh
+}
+
 export const useImage = create<ImageState>((set, get) => ({
   current: null,
   versions: [],
@@ -167,7 +175,7 @@ export const useImage = create<ImageState>((set, get) => ({
               hasAlpha: result.has_alpha,
               report: result,
             },
-            notices: result.gate.notices,
+            notices: freshNotices(result.gate.notices),
           })
           useEdit.getState().reset()
           useView.getState().setImage({ w: result.width, h: result.height })
@@ -214,7 +222,7 @@ async function openProjectFile(file: File, set: Setter): Promise<void> {
         hasAlpha: result.has_alpha,
         report: result,
       },
-      notices: result.gate.notices,
+      notices: freshNotices(result.gate.notices),
     })
     useEdit.getState().reset(result.project.history, result.project.index)
     useView.getState().setImage({ w: result.width, h: result.height })

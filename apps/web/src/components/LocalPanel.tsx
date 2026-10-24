@@ -71,6 +71,28 @@ export function LocalPanel() {
     write('Add local adjustment', [...listOf(), item])
     setSelected(item.id)
   }
+  /** Tilt-shift: a sharp band across the middle, blur growing toward the top and bottom, a little more colour. */
+  const addTiltShift = () => {
+    const { width: w, height: h } = image
+    const blur = Math.min(32, Math.max(4, Math.round(Math.max(w, h) / 160)))
+    const band = (id: string, name: string, from: number, to: number): LocalAdjust => ({
+      id,
+      name,
+      visible: true,
+      mask: {
+        kind: 'linear',
+        x0: w / 2,
+        y0: Math.round(h * from),
+        x1: w / 2,
+        y1: Math.round(h * to),
+        invert: false,
+      },
+      adjust: { ...defaultAdjust(), blur, saturation: 15, contrast: 8 },
+    })
+    const top = band(newId(), 'Tilt-shift (top)', 0.38, 0.08)
+    write('Tilt-shift', [...listOf(), top, band(newId(), 'Tilt-shift (bottom)', 0.62, 0.92)])
+    setSelected(top.id)
+  }
   const setAdjust = (id: string, key: Key, value: number, commit: boolean) => {
     const next = edit(id, (l) => ({ ...l, adjust: { ...l.adjust, [key]: value } as Adjust }))
     if (commit) write('Local adjustment', next)
@@ -101,6 +123,17 @@ export function LocalPanel() {
           onClick={() => add('radial')}
         >
           <Icon name="plus" size={14} /> {t('Radial')}
+        </button>
+        <button
+          type="button"
+          className="button"
+          disabled={items.length + 2 > MAX_LOCAL}
+          onClick={addTiltShift}
+          title={t(
+            'A sharp band across the middle and blur above and below: the scene looks like a miniature model.',
+          )}
+        >
+          <Icon name="plus" size={14} /> {t('Tilt-shift')}
         </button>
       </div>
       {items.length === 0 ? (

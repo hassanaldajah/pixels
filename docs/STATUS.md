@@ -1,6 +1,6 @@
 # Project status and how to continue
 
-Last updated: 2026-10-23. Read this first in a new session.
+Last updated: 2026-10-24. Read this first in a new session.
 
 ## Where we are
 
@@ -17,6 +17,20 @@ algorithms that run locally.
   `app/api_retouch.py`, `RetouchPanel`, `UpscalePanel`.
 - Desktop: Tauri 2 shell, frozen backend (PyInstaller), NSIS installer (about 37 MB), installed and run on the
   user's PC. `.github/workflows/release.yml` is written but has never run.
+
+## Version 0.3.0 (video editor and new tools)
+
+See [CHANGELOG.md](../CHANGELOG.md) for the full list. Where things live:
+
+- Video editor: `apps/web/src/video/` (`model.ts` timeline logic with tests, `store.ts` history and autosave,
+  `media.ts` mediabunny/WebCodecs reading, `render.ts` the one frame composer used by preview and export,
+  `player.ts` playback on the audio clock, `exporter.ts` MP4 export, `thumbs.ts`, `ui/`).
+- Media Security Gate: `server/security/media.py` (container walkers) and `media_gate.py`; routes in
+  `server/app/api_media.py`; tests in `server/tests/security/test_media.py`.
+- Pixel tools with CPU-mirrored algorithms (identical in numpy and TypeScript, parity-tested): smudge
+  (`pipeline/smudge.py` / `lib/smudge.ts`) and liquify (`pipeline/liquify.py` / `lib/liquify.ts`).
+- Recent work and autosave: `lib/recent.ts` (IndexedDB), `lib/autosave.ts`; guided tour: `components/Tour.tsx`.
+- Not done yet: Linux packages were not built on this machine (the release workflow builds them).
 
 ## Version 0.2.1 (security)
 

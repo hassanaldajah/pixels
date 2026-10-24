@@ -56,11 +56,42 @@ def test_old_states_without_layers_still_validate() -> None:
         ("difference", 0.3, 0.8, 0.5),
         ("soft-light", 0.5, 0.5, 0.5),  # a mid-grey top layer changes nothing
         ("soft-light", 0.25, 1.0, 0.5),  # cb + (2cs-1)(D(cb)-cb), D(.25) = .5
+        ("color-dodge", 0.25, 0.5, 0.5),  # cb / (1 - cs)
+        ("color-dodge", 0.0, 1.0, 0.0),  # black stays black
+        ("color-dodge", 0.4, 1.0, 1.0),
+        ("color-burn", 0.75, 0.5, 0.5),  # 1 - (1 - cb) / cs
+        ("color-burn", 1.0, 0.0, 1.0),  # white stays white
+        ("color-burn", 0.5, 0.0, 0.0),
+        ("hard-light", 0.5, 0.25, 0.25),  # cs <= .5: 2 cb cs
+        ("hard-light", 0.5, 0.75, 0.75),  # screen(cb, 2cs - 1)
+        ("exclusion", 0.5, 0.5, 0.5),
+        ("exclusion", 0.2, 1.0, 0.8),
     ],
 )
 def test_blend_formulas(mode: str, cb: float, cs: float, expected: float) -> None:
     got = layers.blend_rgb(mode, np.float32(cb), np.float32(cs))
     assert abs(float(got) - expected) < 1e-6
+
+
+def test_non_separable_modes() -> None:
+    red, grey = np.array([1.0, 0.0, 0.0], np.float32), np.array([0.5, 0.5, 0.5], np.float32)
+    lum = lambda c: 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]  # noqa: E731
+    # luminosity: the base's colour with the top's brightness, and the reverse for color
+    out = layers.blend_rgb("luminosity", red, grey)
+    assert abs(lum(out) - 0.5) < 1e-5 and out[0] > out[1] == out[2]
+    out = layers.blend_rgb("color", grey, red)
+    assert abs(lum(out) - 0.5) < 1e-5 and out[0] > out[1]
+    # a grey top has no hue and no saturation: hue and saturation make the base grey
+    for mode in ("saturation",):
+        out = layers.blend_rgb(mode, red, grey)
+        assert np.allclose(out, out[0]) and abs(float(out[0]) - lum(red)) < 1e-5
+    out = layers.blend_rgb("hue", grey, red)  # grey base has no saturation to give the red hue
+    assert np.allclose(out, 0.5, atol=1e-5)
+    # results stay inside 0..1 for extreme inputs
+    blue = np.array([0.0, 0.0, 1.0], np.float32)
+    for mode in sorted(layers.NON_SEPARABLE):
+        out = layers.blend_rgb(mode, blue, np.array([1.0, 1.0, 0.0], np.float32))
+        assert out.min() >= -1e-6 and out.max() <= 1 + 1e-6
 
 
 def test_blend_over_opaque_base_follows_opacity() -> None:
@@ -193,3 +224,39 @@ def test_masked_layer_fades_in_the_composite() -> None:
     fade = Layer(id="fade01", image_id=ID_A, mask=LayerMask(kind="linear", x0=0, y0=0, x1=10, y1=0))
     out = layers.composite(base, [fade], pictures.__getitem__)
     assert out[0, 0, 0] < 0.1 and out[0, 9, 0] > 0.9 and np.all(np.diff(out[0, :, 0]) > 0)
+
+
+def test_text_layer_source_is_kept_and_bounded() -> None:
+    base = {"id": "text0001", "image_id": "a" * 32}
+    layer = Layer.model_validate(
+        {**base, "source": {"kind": "text", "options": {"text": "مرحبا", "size": 64}}}
+    )
+    assert layer.source is not None and layer.source.options["text"] == "مرحبا"
+    assert Layer.model_validate(base).source is None  # older states
+    with pytest.raises(ValidationError):
+        Layer.model_validate({**base, "source": {"kind": "text", "options": {"text": "x" * 9000}}})
+    with pytest.raises(ValidationError):
+        Layer.model_validate({**base, "source": {"kind": "script", "options": {}}})
+
+
+def test_hide_strokes_move_with_the_layer() -> None:
+    base = solid(40, 40, (0.0, 0.0, 0.0, 1.0))
+    top = solid(10, 10, (1.0, 1.0, 1.0, 1.0))
+    hide = {"strokes": [{"r": 3, "hardness": 1.0, "flow": 1.0, "erase": False, "pts": [[5, 5]]}]}
+
+    def run(x: int, y: int, strokes: dict | None) -> np.ndarray:  # type: ignore[type-arg]
+        layer = Layer.model_validate(
+            {"id": "hide0001", "image_id": "b" * 32, "x": x, "y": y, "hide": strokes}
+        )
+        return layers.composite(base, [layer], lambda _: top)
+
+    shown = run(0, 0, None)
+    hidden = run(0, 0, hide)
+    assert shown[5, 5, 0] == 1.0 and hidden[5, 5, 0] == 0.0  # the middle of the layer is hidden
+    assert hidden[0, 0, 0] == 1.0  # the corner is not
+    moved = run(20, 20, hide)
+    assert (
+        moved[25, 25, 0] == 0.0 and moved[20, 20, 0] == 1.0
+    )  # the hidden spot moved with the layer
+    revealed = {"strokes": [*hide["strokes"], {**hide["strokes"][0], "erase": True}]}
+    assert run(0, 0, revealed)[5, 5, 0] == 1.0  # an erase stroke brings it back

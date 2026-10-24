@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useSystem } from './api/queries'
 import { SplashHost } from './brand/SplashHost'
 import { CanvasHud } from './components/CanvasHud'
@@ -8,10 +8,13 @@ import { ExportDialog } from './components/ExportDialog'
 import { Icon } from './components/Icon'
 import { DropOverlay, EmptyState, FileInput, Notices, Rejections, useIntake } from './components/Overlays'
 import { JobsDock } from './components/JobsDock'
+import { RecentPanel } from './components/RecentPanel'
 import { RightPanel } from './components/RightPanel'
 import { ToolRail } from './components/ToolRail'
+import { Tour, useFirstTour } from './components/Tour'
 import { TopBar } from './components/TopBar'
 import { useT } from './i18n'
+import { installAutosave } from './lib/autosave'
 import { installPointerLight } from './lib/pointerLight'
 import { installShortcuts, takesText } from './lib/shortcuts'
 import { useEdit } from './state/edit'
@@ -19,6 +22,9 @@ import { useImage } from './state/image'
 import { useJobs } from './state/jobs'
 import { DOCK_HEIGHT, RIGHT_WIDTH, useUi } from './state/ui'
 import { Viewport } from './viewport/Viewport'
+
+/** The video editor (and mediabunny) loads only when it is opened, so the photo editor starts as fast as before. */
+const VideoWorkspace = lazy(() => import('./video/ui/Workspace').then((m) => ({ default: m.VideoWorkspace })))
 
 const SPLASH_KEY = 'pixels.splash'
 const DOCK_COLLAPSED = 40
@@ -49,6 +55,8 @@ export default function App() {
   useIntake(setDragging)
   useEffect(installShortcuts, [])
   useEffect(installPointerLight, [])
+  useEffect(installAutosave, [])
+  useFirstTour('photo', intro && !splash && ui.mode === 'photo')
   // Hold the backslash key to flip to the unedited picture.
   useEffect(() => {
     const BACKSLASH = String.fromCharCode(92)
@@ -128,6 +136,23 @@ export default function App() {
     '--dock-h': `${ui.dockOpen ? ui.dockHeight : DOCK_COLLAPSED}px`,
   } as React.CSSProperties
 
+  if (ui.mode === 'video') {
+    return (
+      <>
+        <div className="app" data-mode="video" data-intro={intro}>
+          <TopBar />
+          <Suspense fallback={<div className="v-loading">{t('Opening the video editor…')}</div>}>
+            <VideoWorkspace />
+          </Suspense>
+          <Copyright />
+          <Dialogs />
+        </div>
+        <Tour />
+        {splash && <SplashHost onDone={endSplash} onReveal={revealApp} />}
+      </>
+    )
+  }
+
   return (
     <>
       <div ref={root} className="app" style={style} data-has-image={image !== null} data-intro={intro}>
@@ -137,6 +162,11 @@ export default function App() {
           <Viewport onGlError={setGlError} />
           <CanvasHud />
           {!image && !glError && <EmptyState />}
+          {!image && !glError && (
+            <div className="recent-corner">
+              <RecentPanel />
+            </div>
+          )}
           {glError && (
             <div className="empty">
               <div className="empty-card glass" role="alert">
@@ -191,6 +221,7 @@ export default function App() {
         <ExportDialog />
         <FileInput />
       </div>
+      <Tour />
       {splash && <SplashHost onDone={endSplash} onReveal={revealApp} />}
     </>
   )

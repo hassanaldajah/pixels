@@ -1,6 +1,6 @@
 [project]
 name = "pixels-server"
-version = "0.2.1"
+version = "0.3.0"
 description = "Pixels local backend: Security Gate, image sanitising, editing pipeline."
 requires-python = ">=3.11,<3.12"
 dependencies = [

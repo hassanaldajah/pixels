@@ -152,6 +152,25 @@ export const GUIDE: GuideSection[] = [
     ],
   },
   {
+    id: 'draw',
+    title: 'Draw: write and draw in any colour',
+    summary: 'Pen, marker, highlighter, any colour.',
+    blocks: [
+      {
+        p: 'Draw or write by hand on the picture with the mouse, a finger or a pen. Pick a brush and a colour, then draw. Add it as a layer when you are done; leaving the tool adds it for you.',
+      },
+      {
+        ul: [
+          'Pen: smooth ink; with a pen or stylus, pressing harder draws thicker.',
+          'Marker: an even line that does not darken where it crosses itself. Highlighter: a flat, see-through line.',
+          'Colour: tap a quick colour, or open the picker for any colour: spectrum, numbers, names in Arabic and English, or the eyedropper.',
+          'Undo stroke, Redo and Clear work on the drawing until it becomes a layer.',
+        ],
+      },
+      { tip: 'Raise Smoothing for steadier handwriting with a mouse.' },
+    ],
+  },
+  {
     id: 'brush',
     title: 'Brush: paint light and colour',
     summary: 'Dodge, burn, eyes, teeth.',
@@ -353,8 +372,8 @@ export const GUIDE: GuideSection[] = [
           ['F1', 'This guide'],
           ['?', 'All keyboard shortcuts'],
           [
-            'V  M  L  C  A  E  D  S  B  P  U  R',
-            'Select, Move, Lasso, Transform, Adjust, Eraser, Brush, Clone, Retouch, Pixel Art, Upscale, Presets',
+            'V  M  L  C  A  E  D  N  G  Q  S  B  P  U  R',
+            'Select, Move, Lasso, Transform, Adjust, Eraser, Brush, Draw, Pen, Liquify, Clone, Retouch, Pixel Art, Upscale, Presets',
           ],
           ['\\ (hold)', 'Show the original'],
           ['Space + drag', 'Move around the picture'],

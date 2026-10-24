@@ -1,10 +1,16 @@
 import { useState } from 'react'
 import { useT } from '../i18n'
-import { HSL_BANDS, defaultAdjust, isIdentityAdjust, type Adjust } from '../engine/types'
+import {
+  HSL_BANDS,
+  defaultAdjust,
+  isIdentityAdjust,
+  type Adjust,
+  type BlurKind as BlurKindName,
+} from '../engine/types'
 import { committedState, useDisplayedState, useEdit } from '../state/edit'
 import { hslSwatches } from '../tokens'
 import { CurvesEditor, type CurveChannel } from './CurvesEditor'
-import { Group, Slider } from './controls'
+import { Group, Segmented, Slider } from './controls'
 
 type Path = string
 
@@ -61,6 +67,32 @@ function Row(props: {
         )
       }
     />
+  )
+}
+
+const BLUR_KINDS: { value: BlurKindName; label: string; title: string }[] = [
+  { value: 'gaussian', label: 'Soft', title: 'An even, soft blur' },
+  { value: 'motion', label: 'Motion', title: 'Streaks in one direction, like fast movement' },
+  { value: 'lens', label: 'Lens', title: 'Round, out-of-focus highlights like a camera lens (bokeh)' },
+  { value: 'spin', label: 'Spin', title: 'Turns around the centre of the picture, like a spinning wheel' },
+]
+
+/** The kind of blur the Blur slider makes, and the direction of a motion blur. */
+function BlurKind() {
+  const adjust = useDisplayedState().adjust
+  const kind = adjust.blur_kind ?? 'gaussian'
+  return (
+    <>
+      <Segmented<BlurKindName>
+        label="Blur kind"
+        value={kind}
+        onChange={(v) => commit('Blur kind', 'blur_kind', v)}
+        options={BLUR_KINDS}
+      />
+      {kind === 'motion' && (
+        <Row label="Direction" path="blur_angle" min={0} max={180} neutral={0} unit="°" />
+      )}
+    </>
   )
 }
 
@@ -156,6 +188,7 @@ export function AdjustPanel() {
       <Group title="Detail">
         <Row label="Noise reduction" path="noise_reduction" min={0} max={100} />
         <Row label="Blur" path="blur" min={0} max={32} step={0.5} digits={1} unit="px" />
+        <BlurKind />
         <Row label="Sharpen" path="sharpen.amount" min={0} max={300} />
         <Row
           label="Radius"

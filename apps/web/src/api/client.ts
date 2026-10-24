@@ -100,6 +100,64 @@ export function uploadImage(file: File, options: UploadOptions): Promise<UploadR
   })
 }
 
+/** What the media Security Gate returns for a video or audio file. */
+export interface MediaUpload {
+  id: string
+  url: string
+  name: string
+  kind: string
+  mime: string
+  video_codecs: string[]
+  audio_codecs: string[]
+  width: number
+  height: number
+  duration: number
+  metadata_removed: string[]
+  gate: { notices: string[] }
+}
+
+/** Video and audio go through the media gate (/api/media); the same raw-body upload with progress. */
+export function uploadMedia(file: File, options: UploadOptions): Promise<MediaUpload> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', '/api/media')
+    xhr.responseType = 'json'
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+    xhr.setRequestHeader('X-Filename', encodeURIComponent(file.name))
+    xhr.setRequestHeader('X-Job-Id', options.jobId)
+    for (const [k, v] of Object.entries(authHeaders())) xhr.setRequestHeader(k, v)
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) options.onUploadProgress?.(e.loaded / e.total)
+    }
+    xhr.onerror = () =>
+      reject(
+        new RejectionError({
+          code: 'network',
+          step: 'size',
+          message: 'Could not reach the Pixels backend. Is it running?',
+          steps: [],
+        }),
+      )
+    xhr.onload = () => {
+      const body = xhr.response as (MediaUpload & Partial<Rejection>) | null
+      if (xhr.status === 201 && body) resolve(body)
+      else
+        reject(
+          new RejectionError({
+            code: body?.code ?? 'rejected',
+            step: body?.step ?? 'size',
+            message: body?.message ?? `The upload failed (HTTP ${xhr.status}).`,
+            steps: body?.steps ?? [],
+          }),
+        )
+    }
+    xhr.send(file)
+  })
+}
+
+/** Headers for reading media (LAN mode needs the access token). */
+export const mediaHeaders = (): Record<string, string> => authHeaders()
+
 export async function fetchImageBlob(url: string): Promise<Blob> {
   const response = await fetch(url, { headers: authHeaders() })
   if (!response.ok) throw new Error(`Could not load the image (HTTP ${response.status}).`)

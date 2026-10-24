@@ -13,13 +13,15 @@ from fastapi.staticfiles import StaticFiles
 from app import __version__
 from app.api import router
 from app.api_edit import router as edit_router
+from app.api_media import router as media_router
 from app.api_retouch import router as retouch_router
 from app.config import Settings
 from app.jobs import JobHub
 from app.middleware import Guard
-from app.storage import ImageStore
+from app.storage import ImageStore, MediaStore
 from security.gate import SecurityGate
 from security.log import SecurityLog
+from security.media_gate import MediaGate
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -31,6 +33,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.hub.bind_loop(asyncio.get_running_loop())
         await anyio.to_thread.run_sync(
             app.state.store.purge_older_than, settings.image_retention_days
+        )
+        await anyio.to_thread.run_sync(
+            app.state.media.purge_older_than, settings.media_retention_days
         )
         try:
             yield
@@ -50,6 +55,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.store = ImageStore(settings.images_dir)
     app.state.security_log = SecurityLog(settings.security_log_path)
     app.state.gate = SecurityGate(settings)
+    app.state.media = MediaStore(settings.media_dir)
+    app.state.media_gate = MediaGate(settings, app.state.gate.yara, app.state.gate.clam)
     app.state.gate_slots = asyncio.Semaphore(settings.concurrent_gates)
     app.state.render_slots = asyncio.Semaphore(settings.concurrent_renders)
     app.state.batches = {}
@@ -58,6 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(router)
     app.include_router(edit_router)
     app.include_router(retouch_router)
+    app.include_router(media_router)
     if settings.web_dist is not None:
         app.mount("/", StaticFiles(directory=settings.web_dist, html=True), name="web")
     return app

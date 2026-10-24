@@ -75,3 +75,17 @@ def test_local_adjustments_are_validated() -> None:
         EditState(local=[local(mask=mask)] * 2)
     with pytest.raises(ValidationError):
         EditState(local=[local(mask=mask, id=f"local{i:03d}") for i in range(9)])
+
+
+def test_tone_weight_curves() -> None:
+    from pipeline.render import tone_weight
+
+    ramp = np.linspace(0, 1, 11, dtype=np.float32)
+    image = np.stack([ramp, ramp, ramp, np.ones_like(ramp)], axis=-1)
+    shadows = tone_weight(image, "shadows")[..., 0]
+    highlights = tone_weight(image, "highlights")[..., 0]
+    mids = tone_weight(image, "midtones")[..., 0]
+    assert shadows[0] == 1 and shadows[-1] == 0 and np.all(np.diff(shadows) <= 0)
+    assert highlights[0] == 0 and highlights[-1] == 1 and np.all(np.diff(highlights) >= 0)
+    assert mids[5] == 1 and mids[0] == 0 and mids[-1] == 0
+    assert np.all((mids >= 0) & (mids <= 1))

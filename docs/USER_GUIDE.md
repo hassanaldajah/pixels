@@ -11,6 +11,7 @@ Generated from `apps/web/src/help/guide.ts`. Do not edit by hand.
 - [Transform: crop, rotate, resize](#transform)
 - [Adjust: light, colour, detail](#adjust)
 - [Eraser: remove things](#eraser)
+- [Draw: write and draw in any colour](#draw)
 - [Brush: paint light and colour](#brush)
 - [Clone: copy one part onto another](#clone)
 - [Retouch: heal, smooth, cut out](#retouch)
@@ -127,6 +128,21 @@ Double-click any slider to put it back to zero. You can also type an exact numbe
 - "Undo last removal" goes back to the version before.
 
 It cannot invent something that was never there. It works best on small objects against a plain or textured background (wires, spots, people far away).
+
+<a id="draw"></a>
+
+## Draw: write and draw in any colour
+
+*Pen, marker, highlighter, any colour.*
+
+Draw or write by hand on the picture with the mouse, a finger or a pen. Pick a brush and a colour, then draw. Add it as a layer when you are done; leaving the tool adds it for you.
+
+- Pen: smooth ink; with a pen or stylus, pressing harder draws thicker.
+- Marker: an even line that does not darken where it crosses itself. Highlighter: a flat, see-through line.
+- Colour: tap a quick colour, or open the picker for any colour: spectrum, numbers, names in Arabic and English, or the eyedropper.
+- Undo stroke, Redo and Clear work on the drawing until it becomes a layer.
+
+> **Tip:** Raise Smoothing for steadier handwriting with a mouse.
 
 <a id="brush"></a>
 
@@ -280,7 +296,7 @@ Local adjustments change light and colour only where a gradient is strong. Use t
 | Ctrl+K | Command palette |
 | F1 | This guide |
 | ? | All keyboard shortcuts |
-| V  M  L  C  A  E  D  S  B  P  U  R | Select, Move, Lasso, Transform, Adjust, Eraser, Brush, Clone, Retouch, Pixel Art, Upscale, Presets |
+| V  M  L  C  A  E  D  N  G  Q  S  B  P  U  R | Select, Move, Lasso, Transform, Adjust, Eraser, Brush, Draw, Pen, Liquify, Clone, Retouch, Pixel Art, Upscale, Presets |
 | \ (hold) | Show the original |
 | Space + drag | Move around the picture |
 | Wheel | Zoom |

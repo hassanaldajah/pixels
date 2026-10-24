@@ -3,6 +3,7 @@ import { useImage } from '../state/image'
 import { useUi } from '../state/ui'
 import { useView } from '../state/view'
 import { TOOLS, toolAvailable } from './tools'
+import { useTour } from '../components/Tour'
 import { runThemeWipe } from './themeWipe'
 
 export interface Command {
@@ -185,6 +186,13 @@ export const COMMANDS: Command[] = [
     run: () => useUi.getState().set({ guideOpen: true }),
   },
   {
+    id: 'tour',
+    title: 'Show the tour',
+    keys: '',
+    group: 'Help',
+    run: () => useTour.getState().start(useUi.getState().mode),
+  },
+  {
     id: 'help',
     title: 'Keyboard shortcuts',
     keys: '?',
@@ -249,6 +257,8 @@ export function commandForKey(
 export function installShortcuts(): () => void {
   const handler = (e: KeyboardEvent) => {
     if (isTyping(e) || (e.repeat && !(e.ctrlKey || e.metaKey))) return
+    // the video editor has its own keys (Space, S, Ctrl+Z on the timeline...)
+    if (useUi.getState().mode === 'video') return
     const id = commandForKey(e)
     if (!id) return
     const command = COMMANDS.find((c) => c.id === id)

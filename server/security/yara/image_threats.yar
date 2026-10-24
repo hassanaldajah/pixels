@@ -52,7 +52,9 @@ rule server_side_code_in_image
     strings:
         $php_open = "<?php" nocase
         $php_short = /<\?=\s*\$/
-        $asp_open = "<%@" nocase
+        // a real ASP directive, not the three bytes "<%@" alone: those turn up by chance in compressed
+        // pixel data (about once every 16 MB), which wrongly rejected large AI-made pictures
+        $asp_open = /<%@\s*(page|language|import|control|master|assembly|webhandler|webservice)\b/ nocase
         $asp_eval = /<%\s*(eval|execute)\s*\(/ nocase
         $shebang = /#!\/(bin|usr\/bin)\/(env |sh|bash|python|perl)/
         $powershell = /powershell(\.exe)?\s+-(enc|e|nop|w)\b/ nocase

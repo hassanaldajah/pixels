@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { RejectionError } from '../api/client'
-import { defaultExportOptions, exportIcons, exportSizes, runBatch, saveBlob, type Recipe } from '../api/edit'
+import { defaultExportOptions, exportIcons, exportSizes, runBatch, saveBlob } from '../api/edit'
 import { useCapabilities } from '../api/queries'
 import { useT } from '../i18n'
-import { committedState, displayedState } from '../state/edit'
+import { displayedState } from '../state/edit'
 import { useImage } from '../state/image'
 import { useJobs } from '../state/jobs'
+import { recipeFromCurrent, useRecipes } from '../state/recipes'
 import { outputColors } from '../tokens'
 import { Check, Field, Group, Segmented } from './controls'
 import { Icon } from './Icon'
@@ -19,23 +20,6 @@ const PLATFORM_LABELS: Record<string, string> = {
   web: 'Favicons',
   pwa: 'PWA',
 }
-const RECIPES_KEY = 'pixels.recipes'
-
-function loadRecipes(): Recipe[] {
-  try {
-    return JSON.parse(localStorage.getItem(RECIPES_KEY) ?? '[]') as Recipe[]
-  } catch {
-    return []
-  }
-}
-const storeRecipes = (list: Recipe[]) => {
-  try {
-    localStorage.setItem(RECIPES_KEY, JSON.stringify(list))
-  } catch {
-    /* storage unavailable */
-  }
-}
-
 function useRun() {
   const t = useT()
   const [busy, setBusy] = useState(false)
@@ -251,7 +235,7 @@ function Batch() {
   const { busy, message, run } = useRun()
   const sessionImages = useMemo(() => jobs.filter((j) => j.status === 'done' && j.image_id), [jobs])
   const [picked, setPicked] = useState<string[]>([])
-  const [recipes, setRecipes] = useState<Recipe[]>(loadRecipes)
+  const recipes = useRecipes((s) => s.recipes)
   const [selected, setSelected] = useState<string>('')
   const [name, setName] = useState('My recipe')
   const [layout, setLayout] = useState<'none' | 'pad_square' | 'fit'>('none')
@@ -260,33 +244,22 @@ function Batch() {
   const [format, setFormat] = useState<'png' | 'jpeg' | 'webp'>('webp')
   const [suffix, setSuffix] = useState('_edited')
 
-  const recipeFromCurrent = (): Recipe => ({
-    name: name.trim() || 'Recipe',
-    orientation: committedState().geometry.filter(
-      (g): g is Extract<typeof g, { type: 'rotate90' | 'flip' }> =>
-        g.type === 'rotate90' || g.type === 'flip',
-    ),
-    layout:
-      layout === 'none'
-        ? { type: 'none' }
-        : layout === 'pad_square'
-          ? { type: 'pad_square', fill: null }
-          : { type: 'fit', w: fitW, h: fitH, mode: 'cover', fill: null, focus_x: 0.5, focus_y: 0.5 },
-    adjust: displayedState().adjust,
-    export: { ...defaultExportOptions(), format, quality: 90 },
-    suffix: suffix.replace(/[^A-Za-z0-9_.-]/g, ''),
-  })
   const save = () => {
-    const recipe = recipeFromCurrent()
-    const next = [...recipes.filter((r) => r.name !== recipe.name), recipe]
-    setRecipes(next)
-    storeRecipes(next)
+    const recipe = recipeFromCurrent(name || 'Recipe', {
+      layout:
+        layout === 'none'
+          ? { type: 'none' }
+          : layout === 'pad_square'
+            ? { type: 'pad_square', fill: null }
+            : { type: 'fit', w: fitW, h: fitH, mode: 'cover', fill: null, focus_x: 0.5, focus_y: 0.5 },
+      export: { ...defaultExportOptions(), format, quality: 90 },
+      suffix: suffix.replace(/[^A-Za-z0-9_.-]/g, ''),
+    })
+    useRecipes.getState().save(recipe)
     setSelected(recipe.name)
   }
   const remove = () => {
-    const next = recipes.filter((r) => r.name !== selected)
-    setRecipes(next)
-    storeRecipes(next)
+    useRecipes.getState().remove(selected)
     setSelected('')
   }
   const chosen = recipes.find((r) => r.name === selected)

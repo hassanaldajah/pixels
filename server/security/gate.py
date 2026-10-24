@@ -80,8 +80,10 @@ class GateResult:
 
 
 class _Tracker:
-    def __init__(self, on_progress: Progress | None) -> None:
-        self.steps = {sid: StepResult(sid, label) for sid, label in STEPS}
+    def __init__(
+        self, on_progress: Progress | None, steps: tuple[tuple[str, str], ...] = STEPS
+    ) -> None:
+        self.steps = {sid: StepResult(sid, label) for sid, label in steps}
         self._on_progress = on_progress
 
     def done(self, step: str, status: str = "passed", detail: str = "") -> None:

@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from pipeline import adjust, clone, geometry, layers, paint, pixelart, selection
+from pipeline import adjust, clone, geometry, layers, liquify, paint, pixelart, selection, smudge
 from pipeline.layers import LayerLoader
 from pipeline.ops import EditState
 
@@ -26,7 +26,11 @@ def load_rgba(path: Path) -> Array:
 def render_base(source: Array, state: EditState, max_pixels: int = DEFAULT_MAX_PIXELS) -> Array:
     """Geometry and adjustments only (everything except the pixel-art effect)."""
     image = geometry.apply(source, state.geometry, max_pixels) if state.geometry else source
+    image = liquify.apply(
+        image, state.liquify
+    )  # reshaping comes first: retouching works on the result
     image = clone.apply(image, state.clone)
+    image = smudge.apply(image, state.smudge)
     adjusted = adjust.apply(image, state.adjust, scale=1.0)
     if state.selection is not None and not state.adjust.is_identity():
         adjusted = selection.apply_inside(image, adjusted, state.selection)
@@ -40,8 +44,31 @@ def render_base(source: Array, state: EditState, max_pixels: int = DEFAULT_MAX_P
             if local.mask is not None
             else paint.mask(local.paint, w, h)  # type: ignore[arg-type]
         )
+        if local.tone != "all":
+            weight = weight * tone_weight(adjusted, local.tone)
         adjusted = np.asarray(adjusted + (tweaked - adjusted) * weight, dtype=np.float32)
     return adjusted
+
+
+def _smoothstep(e0: float, e1: float, x: Array) -> Array:
+    t = np.clip((x - np.float32(e0)) / np.float32(e1 - e0), 0.0, 1.0)
+    return np.asarray(t * t * (np.float32(3) - np.float32(2) * t), dtype=np.float32)
+
+
+def tone_weight(image: Array, tone: str) -> Array:
+    """How much a pixel belongs to the shadows, midtones or highlights (0..1), from its luminance.
+    The GPU preview uses the same curves (MIX_FRAG in engine/shaders.ts)."""
+    lum = (
+        np.float32(0.2126) * image[..., 0:1]
+        + np.float32(0.7152) * image[..., 1:2]
+        + np.float32(0.0722) * image[..., 2:3]
+    )
+    if tone == "shadows":
+        return np.float32(1) - _smoothstep(0.0, 0.55, lum)
+    if tone == "highlights":
+        return _smoothstep(0.45, 1.0, lum)
+    centred = np.float32(2) * lum - np.float32(1)
+    return np.asarray(np.clip(np.float32(1) - centred * centred, 0.0, 1.0), dtype=np.float32)
 
 
 def render_composite(

@@ -5,6 +5,7 @@ import { useT } from '../i18n'
 import { ACCEPT_ATTRIBUTE } from '../lib/precheck'
 import { openFilePicker } from '../lib/shortcuts'
 import { useImage } from '../state/image'
+import { useUi } from '../state/ui'
 import { GateSteps } from './GateSteps'
 import { Icon } from './Icon'
 
@@ -31,7 +32,9 @@ export function useIntake(setDragging: (on: boolean) => void): void {
   const importFiles = useImage((s) => s.importFiles)
   useEffect(() => {
     let depth = 0
-    const hasFiles = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].includes('Files')
+    // in the video editor, dropped and pasted files go to the video media instead
+    const hasFiles = (e: DragEvent) =>
+      useUi.getState().mode === 'photo' && [...(e.dataTransfer?.types ?? [])].includes('Files')
     const enter = (e: DragEvent) => {
       if (!hasFiles(e)) return
       e.preventDefault()
@@ -52,6 +55,7 @@ export function useIntake(setDragging: (on: boolean) => void): void {
       void importFiles([...(e.dataTransfer?.files ?? [])])
     }
     const paste = (e: ClipboardEvent) => {
+      if (useUi.getState().mode !== 'photo') return
       const files = [...(e.clipboardData?.files ?? [])]
       if (files.length === 0) return
       e.preventDefault()

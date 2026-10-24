@@ -67,6 +67,19 @@ class YaraScanner:
             hits.append(RuleHit(rule.identifier, str(meta.get("description", rule.identifier))))
         return hits
 
+    def scan_bytes(self, data: bytes, timeout_seconds: int = 60) -> list[RuleHit]:
+        """Scan bytes held in memory (the parts of a media file that carry no compressed media)."""
+        if self._rules is None or not data:
+            return []
+        import yara_x
+
+        scanner = yara_x.Scanner(self._rules)
+        scanner.set_timeout(timeout_seconds)
+        return [
+            RuleHit(rule.identifier, str(dict(rule.metadata).get("description", rule.identifier)))
+            for rule in scanner.scan(data).matching_rules
+        ]
+
 
 class ClamdClient:
     """Minimal clamd INSTREAM client. No third-party dependency, no code executed from the file."""

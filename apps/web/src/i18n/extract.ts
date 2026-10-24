@@ -54,5 +54,12 @@ export const NOT_WORDS = new RegExp(
     '^Generated from',
     '^\\| Keys',
     '^ ?SVG can',
+    '^[a-z]+(?: [a-z]+-[a-z-]+)+$', // CSS class lists such as "hint hint-error"
+    '^(?=.*-)[a-z-]+(?: [a-z-]+)+$', // and "panel-scroll v-pad"
+    '^rgba?\\(', // colours
+    '^(Esc|Escape|Backspace|Enter|Arrow(Left|Right|Up|Down))$', // key names stay as printed on the keyboard
+    '^translate\\(', // CSS
+    '^sudo ', // terminal commands are typed as they are
+    '^(Video(De|En)coder|Ubuntu, Debian, Mint|Fedora|Arch, Manjaro)$', // API and system names
   ].join('|'),
 )

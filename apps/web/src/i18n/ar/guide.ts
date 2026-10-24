@@ -237,8 +237,21 @@ export const guide: Record<string, string> = {
   'Save the project': 'حفظ المشروع',
   'This guide': 'هذا الدليل',
   'All keyboard shortcuts': 'كل اختصارات لوحة المفاتيح',
-  'Select, Move, Lasso, Transform, Adjust, Eraser, Brush, Clone, Retouch, Pixel Art, Upscale, Presets':
-    'تحديد، تحريك، المحدِّد الحر، تحويل، ضبط، ممحاة، فرشاة، استنساخ، تنقيح، فن البكسل، تكبير الدقة، قوالب جاهزة',
+  'Select, Move, Lasso, Transform, Adjust, Eraser, Brush, Draw, Pen, Liquify, Clone, Retouch, Pixel Art, Upscale, Presets':
+    'تحديد، تحريك، المحدِّد الحر، تحويل، ضبط، ممحاة، فرشاة، رسم، قلم، تشكيل، استنساخ، تنقيح، فن البكسل، تكبير الدقة، قوالب جاهزة',
+  'Draw: write and draw in any colour': 'الرسم: اكتب وارسم بأي لون',
+  'Pen, marker, highlighter, any colour.': 'قلم، ماركر، قلم تظليل، بأي لون.',
+  'Draw or write by hand on the picture with the mouse, a finger or a pen. Pick a brush and a colour, then draw. Add it as a layer when you are done; leaving the tool adds it for you.':
+    'ارسم أو اكتب بيدك على الصورة بالفأرة أو بإصبعك أو بالقلم. اختر الفرشاة واللون ثم ارسم. أضفه طبقةً عند الانتهاء؛ ترك الأداة يضيفه تلقائيًا.',
+  'Pen: smooth ink; with a pen or stylus, pressing harder draws thicker.':
+    'القلم: حبر ناعم؛ مع القلم الرقمي يصبح الخط أعرض كلما ضغطت أكثر.',
+  'Marker: an even line that does not darken where it crosses itself. Highlighter: a flat, see-through line.':
+    'الماركر: خط متساوٍ لا يغمق عند مروره فوق نفسه. قلم التظليل: خط مسطّح شفاف.',
+  'Colour: tap a quick colour, or open the picker for any colour: spectrum, numbers, names in Arabic and English, or the eyedropper.':
+    'اللون: اختر لونًا سريعًا، أو افتح منتقي الألوان لأي لون: الطيف، أو الأرقام، أو الأسماء بالعربية والإنجليزية، أو قطّارة الألوان.',
+  'Undo stroke, Redo and Clear work on the drawing until it becomes a layer.':
+    'التراجع عن الخط والإعادة والمسح تعمل على الرسم حتى يصبح طبقة.',
+  'Raise Smoothing for steadier handwriting with a mouse.': 'ارفع التنعيم لكتابة أثبت بالفأرة.',
   '\\ (hold)': '\\ (مع الاستمرار)',
   'Show the original': 'عرض الأصل',
   'Space + drag': 'المسافة + سحب',

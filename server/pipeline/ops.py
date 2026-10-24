@@ -6,8 +6,9 @@ NumPy for the final export. The two implementations follow docs/PIPELINE.md.
 
 from __future__ import annotations
 
+import json
 import re
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -179,7 +180,9 @@ class Adjust(_Model):
     hsl: Hsl = Field(default_factory=Hsl)
     curves: Curves = Field(default_factory=Curves)
     noise_reduction: float = Field(default=0.0, ge=0, le=100)
-    blur: float = Field(default=0.0, ge=0, le=32)  # Gaussian blur, sigma in source pixels
+    blur: float = Field(default=0.0, ge=0, le=32)  # blur size in source pixels (Gaussian: sigma)
+    blur_kind: Literal["gaussian", "motion", "lens", "spin"] = "gaussian"
+    blur_angle: float = Field(default=0.0, ge=0, le=180)  # motion blur direction, degrees
     sharpen: Sharpen = Field(default_factory=Sharpen)
     vignette: Vignette = Field(default_factory=Vignette)
     grain: Grain = Field(default_factory=Grain)
@@ -231,7 +234,7 @@ MAX_SELECTION_POINTS = 128
 class Selection(_Model):
     """Where the adjustments apply, on the edited canvas. Rectangle/ellipse use x, y, w, h; polygon uses points."""
 
-    kind: Literal["rect", "ellipse", "polygon"]
+    kind: Literal["rect", "ellipse", "polygon", "wand"]  # wand: x, y is the clicked point
     x: float = Field(default=0.0, ge=-1e6, le=1e6)
     y: float = Field(default=0.0, ge=-1e6, le=1e6)
     w: float = Field(default=1.0, gt=0, le=1e6)
@@ -239,6 +242,10 @@ class Selection(_Model):
     points: list[list[float]] = Field(default_factory=list, max_length=MAX_SELECTION_POINTS)
     feather: float = Field(default=0.0, ge=0, le=500)  # pixels
     invert: bool = False
+    tolerance: float = Field(
+        default=20.0, ge=0, le=100
+    )  # wand: how far the colour may drift, percent
+    contiguous: bool = True  # wand: only the area connected to the clicked point
 
     @field_validator("points")
     @classmethod
@@ -257,8 +264,10 @@ class Selection(_Model):
 
 # --- layers ----------------------------------------------------------------------------------
 BlendMode = Literal[
-    "normal", "multiply", "screen", "overlay", "darken", "lighten", "difference", "soft-light"
-]
+    "normal", "multiply", "screen", "overlay", "darken", "lighten", "difference", "soft-light",
+    "color-dodge", "color-burn", "hard-light", "exclusion", "hue", "saturation", "color",
+    "luminosity",
+]  # fmt: skip
 MAX_LAYERS = 16
 LAYER_ID = re.compile(r"^[a-z0-9]{6,32}$")
 IMAGE_ID = re.compile(r"^[0-9a-f]{32}$")
@@ -285,6 +294,27 @@ class LayerMask(_Model):
         return value
 
 
+MAX_SOURCE_BYTES = 8192
+
+
+class LayerSource(_Model):
+    """The settings a text or pen-path layer was drawn with, kept so it can be edited and drawn again.
+
+    The browser draws the picture; the server never reads these options, it only stores them with the
+    edit state. The picture itself is still a working copy that passed the Security Gate.
+    """
+
+    kind: Literal["text", "path"]
+    options: dict[str, Any]
+
+    @field_validator("options")
+    @classmethod
+    def _small(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if len(json.dumps(value, ensure_ascii=False).encode()) > MAX_SOURCE_BYTES:
+            raise ValueError(f"layer source options are larger than {MAX_SOURCE_BYTES} bytes")
+        return value
+
+
 class Layer(_Model):
     """A picture placed above the edited image. Its pixels are another sanitised working copy."""
 
@@ -298,6 +328,10 @@ class Layer(_Model):
     y: float = Field(default=0.0, ge=-1e6, le=1e6)
     scale: float = Field(default=1.0, ge=0.01, le=20.0)
     mask: LayerMask | None = None
+    # brush strokes that hide parts of the layer, in the layer's own pixels (they move and scale with it);
+    # an "erase" stroke brings hidden parts back
+    hide: Paint | None = None
+    source: LayerSource | None = None  # how the picture was made, so it can be made again
 
     @field_validator("id")
     @classmethod
@@ -379,6 +413,8 @@ class LocalAdjust(_Model):
     mask: LayerMask | None = None  # a gradient...
     paint: Paint | None = None  # ...or brush strokes (exactly one of the two)
     adjust: Adjust = Field(default_factory=Adjust)
+    # which tones it reaches: dodge the highlights only, burn the shadows only, and so on
+    tone: Literal["all", "shadows", "midtones", "highlights"] = "all"
 
     @field_validator("id")
     @classmethod
@@ -394,6 +430,46 @@ class LocalAdjust(_Model):
         return self
 
 
+MAX_LIQUIFY = 80
+
+
+class LiquifyStroke(_Model):
+    """One liquify stroke (canvas pixels, after geometry): see pipeline/liquify.py."""
+
+    mode: Literal["push", "bloat", "pinch", "restore"] = "push"
+    r: float = Field(ge=2, le=600)
+    strength: float = Field(default=0.5, ge=0.01, le=1)
+    pts: list[list[float]] = Field(min_length=1, max_length=4000)
+
+    @field_validator("pts")
+    @classmethod
+    def _points(cls, value: list[list[float]]) -> list[list[float]]:
+        for point in value:
+            if len(point) != 2 or any(abs(c) > 1e6 for c in point):
+                raise ValueError("each dab must be [x, y]")
+        return value
+
+
+MAX_SMUDGE = 60
+
+
+class SmudgeStroke(_Model):
+    """One smudge stroke: drags colour along the dabs at `pts` (canvas pixels, after geometry)."""
+
+    r: float = Field(ge=1, le=300)
+    hardness: float = Field(default=0.5, ge=0, le=1)
+    strength: float = Field(default=0.6, ge=0.05, le=1)
+    pts: list[list[float]] = Field(min_length=1, max_length=4000)
+
+    @field_validator("pts")
+    @classmethod
+    def _points(cls, value: list[list[float]]) -> list[list[float]]:
+        for point in value:
+            if len(point) != 2 or any(abs(c) > 1e6 for c in point):
+                raise ValueError("each dab must be [x, y]")
+        return value
+
+
 class EditState(_Model):
     geometry: list[GeoOp] = Field(default_factory=list, max_length=MAX_GEOMETRY_OPS)
     adjust: Adjust = Field(default_factory=Adjust)
@@ -401,6 +477,8 @@ class EditState(_Model):
     selection: Selection | None = None  # limits the adjustments to this area
     local: list[LocalAdjust] = Field(default_factory=list, max_length=MAX_LOCAL)
     clone: list[ClonePaint] = Field(default_factory=list, max_length=MAX_CLONE)
+    smudge: list[SmudgeStroke] = Field(default_factory=list, max_length=MAX_SMUDGE)
+    liquify: list[LiquifyStroke] = Field(default_factory=list, max_length=MAX_LIQUIFY)
     # Bottom to top: layers[0] sits just above the edited picture.
     layers: list[Layer] = Field(default_factory=list, max_length=MAX_LAYERS)
 
@@ -416,6 +494,20 @@ class EditState(_Model):
     def _clone_total(cls, value: list[ClonePaint]) -> list[ClonePaint]:
         if sum(len(s.pts) for s in value) > MAX_DABS:
             raise ValueError(f"clone strokes can hold at most {MAX_DABS} dabs")
+        return value
+
+    @field_validator("smudge")
+    @classmethod
+    def _smudge_total(cls, value: list[SmudgeStroke]) -> list[SmudgeStroke]:
+        if sum(len(s.pts) for s in value) > MAX_DABS:
+            raise ValueError(f"smudge strokes can hold at most {MAX_DABS} dabs")
+        return value
+
+    @field_validator("liquify")
+    @classmethod
+    def _liquify_total(cls, value: list[LiquifyStroke]) -> list[LiquifyStroke]:
+        if sum(len(s.pts) for s in value) > MAX_DABS:
+            raise ValueError(f"liquify strokes can hold at most {MAX_DABS} dabs")
         return value
 
     @field_validator("local")

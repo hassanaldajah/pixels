@@ -64,3 +64,26 @@ class ImageStore:
                 self.delete(path.stem)
                 removed += 1
         return removed
+
+
+class MediaStore(ImageStore):
+    """Sanitised video and audio, stored the same way: a random id, the file and its report."""
+
+    def png_path(self, image_id: str) -> Path:
+        return self.media_path(image_id)
+
+    def media_path(self, media_id: str) -> Path:
+        if not is_valid_id(media_id):
+            raise ValueError("invalid media id")
+        return self.dir / f"{media_id}.media"
+
+    def purge_older_than(self, days: int) -> int:
+        if days <= 0:
+            return 0
+        cutoff = time.time() - days * 86400
+        removed = 0
+        for path in self.dir.glob("*.media"):
+            if path.stat().st_mtime < cutoff:
+                self.delete(path.stem)
+                removed += 1
+        return removed

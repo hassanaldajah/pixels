@@ -42,7 +42,7 @@ export const ui: Record<string, string> = {
     'قارن مع الصورة غير المعدَّلة. اضغط مفتاح الشرطة المائلة العكسية مطولًا للتبديل.',
   Edit: 'تعديل',
   Split: 'تقسيم',
-  Side: 'جنبًا إلى جنب',
+  Side: 'متجاوران',
   // --- security popover
   'Security: offline': 'الأمان: غير متصل',
   'Security: reduced': 'الأمان: مخفَّض',
@@ -644,4 +644,377 @@ export const ui: Record<string, string> = {
   'Hide layer': 'إخفاء الطبقة',
   'Show layer': 'إظهار الطبقة',
   Layer: 'طبقة',
+
+  // colour picker
+  Hue: 'درجة اللون',
+  HEX: 'HEX',
+  'Saturation and brightness': 'التشبّع والسطوع',
+  'Pick a colour from the screen': 'التقاط لون من الشاشة',
+  'Recent colours': 'الألوان الأخيرة',
+  'By name': 'بالاسم',
+  'Search colours': 'البحث عن لون',
+  'Search colours (red, أحمر, navy…)': 'ابحث عن لون (أحمر، red، كحلي…)',
+  'No colour has that name.': 'لا يوجد لون بهذا الاسم.',
+  'Quick colours': 'ألوان سريعة',
+
+  // text
+  Preview: 'معاينة',
+  'Text style': 'نمط النص',
+  Plain: 'عادي',
+  Outlined: 'بإطار',
+  Shadow: 'ظل',
+  Label: 'ملصق',
+  Gradient: 'متدرّج',
+  Arabic: 'عربي',
+  Display: 'عناوين',
+  'Text colour': 'لون النص',
+  Alignment: 'المحاذاة',
+  Start: 'البداية',
+  Centre: 'الوسط',
+  End: 'النهاية',
+  'Letter spacing': 'تباعد الحروف',
+  'Line spacing': 'تباعد الأسطر',
+  'Gradient fill': 'تعبئة متدرّجة',
+  'Second colour': 'اللون الثاني',
+  'Gradient angle': 'زاوية التدرّج',
+  'Outline width': 'سماكة الإطار',
+  'Shadow colour': 'لون الظل',
+  'Shadow softness': 'نعومة الظل',
+  'Shadow distance': 'مسافة الظل',
+  'Background box': 'صندوق خلفية',
+  'Box colour': 'لون الصندوق',
+  'Box padding': 'حشوة الصندوق',
+  'Shape colour': 'لون الشكل',
+
+  // draw
+  Draw: 'رسم',
+  'Draw and write by hand on the picture in any colour: pen, marker, highlighter.':
+    'ارسم واكتب بيدك على الصورة بأي لون: قلم، ماركر، قلم تظليل.',
+  'Draw or write by hand on the picture with the mouse, a finger or a pen. When you are done, add it as a layer: then you can move it, fade it or blend it. Leaving this tool adds it for you.':
+    'ارسم أو اكتب بيدك على الصورة بالفأرة أو بإصبعك أو بالقلم. عند الانتهاء أضفه طبقةً لتتمكن من تحريكه أو تخفيفه أو دمجه. ترك هذه الأداة يضيفه تلقائيًا.',
+  Pen: 'قلم',
+  Marker: 'ماركر',
+  Highlighter: 'قلم تظليل',
+  'Smooth ink. With a pen or stylus, pressing harder draws thicker.':
+    'حبر ناعم. مع القلم الرقمي يصبح الخط أعرض كلما ضغطت أكثر.',
+  'An even, solid line; crossing your own stroke does not darken it.':
+    'خط متساوٍ ومصمت؛ لا يغمق عند المرور فوق نفسه.',
+  'A flat, see-through line, like a highlighter pen.': 'خط مسطّح شفاف مثل قلم التظليل.',
+  'Rubs out what you drew (the picture underneath is not changed).': 'يمسح ما رسمته (الصورة تحته لا تتغير).',
+  Clear: 'مسح الكل',
+  'Adding…': 'جارٍ الإضافة…',
+  'The drawing could not be saved.': 'تعذّر حفظ الرسم.',
+
+  // video editor
+  Editor: 'المحرّر',
+  Photos: 'صور',
+  Video: 'فيديو',
+  Media: 'الوسائط',
+  Import: 'استيراد',
+  'Checking…': 'جارٍ الفحص…',
+  'Video, music, voice and pictures. Every file is checked before it is used.':
+    'فيديو وموسيقى وصوت وصور. كل ملف يُفحص قبل استخدامه.',
+  'Add to the timeline': 'إضافة إلى الخط الزمني',
+  'Import a video, a song or pictures to start. Drop files anywhere.':
+    'استورد فيديو أو أغنية أو صورًا للبدء. أفلت الملفات في أي مكان.',
+  'Opening the video editor…': 'جارٍ فتح محرّر الفيديو…',
+  'Frame shape': 'شكل الإطار',
+  'Frames per second': 'إطارات في الثانية',
+  Play: 'تشغيل',
+  Pause: 'إيقاف مؤقت',
+  'To the start': 'إلى البداية',
+  'To the end': 'إلى النهاية',
+  'One frame back': 'إطار للخلف',
+  'One frame forward': 'إطار للأمام',
+  Timeline: 'الخط الزمني',
+  'Split at the playhead (S)': 'قصّ عند مؤشر التشغيل (S)',
+  'Video track': 'مسار فيديو',
+  'Text track': 'مسار نص',
+  'Audio track': 'مسار صوت',
+  'Zoom the timeline': 'تكبير الخط الزمني',
+  Main: 'الرئيسي',
+  Sound: 'الصوت',
+  'Mute track': 'كتم المسار',
+  'Unmute track': 'إلغاء كتم المسار',
+  'Hide track': 'إخفاء المسار',
+  'Show track': 'إظهار المسار',
+  'Drop clips here': 'أفلت المقاطع هنا',
+  'Drop music or a voice-over here': 'أفلت الموسيقى أو التعليق الصوتي هنا',
+  'Titles go here': 'العناوين هنا',
+  'Missing file': 'ملف مفقود',
+  Title: 'عنوان',
+  'Your title': 'عنوانك',
+  Transition: 'انتقال',
+  'Last change': 'آخر تغيير',
+  'Select a clip on the timeline to change it.': 'اختر مقطعًا في الخط الزمني لتعديله.',
+  'Delete clip': 'حذف المقطع',
+  'Position and size': 'الموضع والحجم',
+  'Left / right': 'يمين / يسار',
+  'Up / down': 'أعلى / أسفل',
+  Rotation: 'التدوير',
+  'Whole picture': 'الصورة كاملة',
+  'Fill the frame': 'ملء الإطار',
+  'Speed and sound': 'السرعة والصوت',
+  Speed: 'السرعة',
+  Volume: 'مستوى الصوت',
+  'Fade in': 'ظهور تدريجي',
+  'Fade out': 'اختفاء تدريجي',
+  'Mute this clip': 'كتم هذا المقطع',
+  Looks: 'المظاهر',
+  Look: 'مظهر',
+  Vivid: 'زاهٍ',
+  Warm: 'دافئ',
+  Cool: 'بارد',
+  'Black & white': 'أبيض وأسود',
+  Noir: 'نوار',
+  Faded: 'باهت',
+  Cinema: 'سينمائي',
+  Sunset: 'غروب',
+  Retro: 'كلاسيكي',
+  'Transition in': 'الانتقال إلى المقطع',
+  'Transition from the previous clip': 'الانتقال من المقطع السابق',
+  'Transition length': 'مدة الانتقال',
+  'Dip to black': 'عبر الأسود',
+  Wipe: 'مسح',
+  Slide: 'انزلاق',
+  Animation: 'الحركة',
+  Entrance: 'الدخول',
+  Exit: 'الخروج',
+  Rise: 'صعود',
+  Pop: 'قفزة',
+  Keyframe: 'إطار مفتاحي',
+  'Add a keyframe at the playhead': 'إضافة إطار مفتاحي عند مؤشر التشغيل',
+  'Remove the keyframe at the playhead': 'حذف الإطار المفتاحي عند مؤشر التشغيل',
+  'The file could not be opened.': 'تعذّر فتح الملف.',
+
+  // video support on this system
+  Copy: 'نسخ',
+  Copied: 'تم النسخ',
+  'This system cannot play some videos yet': 'هذا النظام لا يستطيع تشغيل بعض الفيديوهات بعد',
+  'This system cannot export video yet': 'هذا النظام لا يستطيع تصدير الفيديو بعد',
+  'Open Pixels in Chrome, Edge or Firefox: it is the same app on this computer, with your projects.':
+    'افتح Pixels في Chrome أو Edge أو Firefox: إنه التطبيق نفسه على هذا الجهاز، مع مشاريعك.',
+  'Or install the video plugins for your system, then restart Pixels:':
+    'أو ثبّت إضافات الفيديو لنظامك ثم أعد تشغيل Pixels:',
+
+  // guided tour
+  'Show the tour': 'عرض الجولة التعريفية',
+  'Step {n} of {total}': 'الخطوة {n} من {total}',
+  Next: 'التالي',
+  Back: 'السابق',
+  Skip: 'تخطٍّ',
+  'Welcome to Pixels': 'أهلًا بك في Pixels',
+  'A one-minute tour of the main parts. Everything runs on this computer: nothing is uploaded anywhere.':
+    'جولة دقيقة واحدة على الأجزاء الرئيسية. كل شيء يعمل على هذا الجهاز: لا يُرفع شيء إلى أي مكان.',
+  'Choose a picture, drop it on the window or paste it. Every file is checked for hidden dangers before it is shown.':
+    'اختر صورة أو أفلتها على النافذة أو الصقها. كل ملف يُفحص من المخاطر المخفية قبل عرضه.',
+  'Crop, adjust, draw, erase, liquify, clone and more. Each tool shows its settings on the inspector.':
+    'قصّ وعدّل وارسم وامسح وشكّل واستنسخ وغير ذلك. كل أداة تعرض إعداداتها في لوحة الخصائص.',
+  'The settings of the tool you picked, and below them layers, text, fills, actions and the history of every change.':
+    'إعدادات الأداة التي اخترتها، وتحتها الطبقات والنصوص والتعبئة والإجراءات وسجل كل تغيير.',
+  'Compare and zoom': 'المقارنة والتكبير',
+  'See the picture before and after your edits, and zoom in or out. Hold the backslash key to flip quickly.':
+    'شاهد الصورة قبل تعديلاتك وبعدها، وكبّر أو صغّر. اضغط مفتاح الشرطة المائلة العكسية للتبديل سريعًا.',
+  'Save your work': 'احفظ عملك',
+  'Save the project to keep editing later, or export the picture for the web, print or app stores.':
+    'احفظ المشروع لتكمل التعديل لاحقًا، أو صدّر الصورة للويب أو الطباعة أو متاجر التطبيقات.',
+  'Video editor': 'محرّر الفيديو',
+  'Switch to Video to cut clips, add music, titles, transitions and colour, and export up to 4K.':
+    'انتقل إلى الفيديو لقصّ المقاطع وإضافة الموسيقى والعناوين والانتقالات والألوان، والتصدير حتى 4K.',
+  'Help is always here': 'المساعدة هنا دائمًا',
+  'The guide (F1) explains every tool. The language button switches between Arabic and English.':
+    'الدليل (F1) يشرح كل أداة. زر اللغة يبدّل بين العربية والإنجليزية.',
+  'Import videos, music, voice and pictures, or add a title. Click a file to add it to the timeline, or drag it there.':
+    'استورد الفيديو والموسيقى والصوت والصور، أو أضف عنوانًا. انقر ملفًا لإضافته إلى الخط الزمني أو اسحبه إليه.',
+  'Play your video (Space). Choose the frame shape for each platform, and see it inside a phone with the safe zones.':
+    'شغّل الفيديو (مسافة). اختر شكل الإطار لكل منصة، وشاهده داخل هاتف مع المناطق الآمنة.',
+  'Drag clips to move them, drag their edges to trim them, press S to split at the red line. Ctrl+Z undoes.':
+    'اسحب المقاطع لتحريكها، واسحب أطرافها لقصّها، واضغط S للتقسيم عند الخط الأحمر. Ctrl+Z للتراجع.',
+  'Clip settings': 'إعدادات المقطع',
+  'Size, position and movement (◆ adds a keyframe), speed, sound, colour and looks, transitions and animations.':
+    'الحجم والموضع والحركة (◆ يضيف إطارًا مفتاحيًا)، والسرعة والصوت والألوان والمظاهر والانتقالات والحركات.',
+  'Export an MP4 at 720p, 1080p, 2K or 4K: only the sizes this computer can make are offered.':
+    'صدّر MP4 بدقة 720p أو 1080p أو 2K أو 4K: تُعرض فقط الأحجام التي يستطيع هذا الجهاز صنعها.',
+
+  // recent work
+  Recent: 'الأحدث',
+  'Continue where you left off': 'أكمل من حيث توقفت',
+  'New video': 'فيديو جديد',
+  Picture: 'صورة',
+  'Remove from the list': 'إزالة من القائمة',
+  'Start a new video; this one stays in the recent list': 'ابدأ فيديو جديدًا؛ يبقى هذا في قائمة الأحدث',
+  'That picture is no longer on this computer (pictures are kept for 14 days).':
+    'هذه الصورة لم تعد على هذا الجهاز (تُحفظ الصور 14 يومًا).',
+  'Untitled video': 'فيديو بلا عنوان',
+  'just now': 'الآن',
+  '{n} min ago': 'قبل {n} دقيقة',
+  '{n} h ago': 'قبل {n} ساعة',
+  '{n} days ago': 'قبل {n} يوم',
+
+  // video export, phone frame, safe zones
+  'Export video': 'تصدير الفيديو',
+  'Export the video': 'تصدير الفيديو',
+  'Export again': 'تصدير مرة أخرى',
+  Cancel: 'إلغاء',
+  '{d} long, {fps} frames per second, MP4 at the highest quality.':
+    'المدة {d}، {fps} إطارًا في الثانية، MP4 بأعلى جودة.',
+  'This device cannot encode this size': 'هذا الجهاز لا يستطيع ترميز هذا الحجم',
+  'about {s} left': 'بقي نحو {s}',
+  'The video is saved.': 'تم حفظ الفيديو.',
+  'The export stopped: {reason}': 'توقف التصدير: {reason}',
+  '1080p (Full HD)': '1080p (دقة كاملة)',
+  '1440p (2K)': '1440p (2K)',
+  '2160p (4K)': '2160p (4K)',
+  Phone: 'هاتف',
+  'See the video inside a phone, as viewers will': 'شاهد الفيديو داخل هاتف كما سيراه المشاهدون',
+  'Safe zones': 'المناطق الآمنة',
+  'No safe zones': 'بلا مناطق آمنة',
+  "Where the app's buttons and captions cover the video": 'حيث تغطي أزرار التطبيق ونصوصه الفيديو',
+  TikTok: 'تيك توك',
+  'Instagram Reels': 'ريلز إنستغرام',
+  'YouTube Shorts': 'شورتس يوتيوب',
+  'Top bar': 'الشريط العلوي',
+  Buttons: 'الأزرار',
+  'Caption and music': 'الوصف والموسيقى',
+  'Title and channel': 'العنوان والقناة',
+
+  // pen (the tool shares the word "Pen" with the Draw brush)
+  'Add path as a layer': 'إضافة المسار كطبقة',
+  'Update path layer': 'تحديث طبقة المسار',
+  'Click on the picture to start a path.': 'انقر على الصورة لبدء مسار.',
+  'Click to place corner points; click and drag for smooth curves. Click the first point to close the shape. Drag points or handles to adjust them (Alt moves one handle alone).':
+    'انقر لوضع نقاط زاوية، وانقر واسحب لمنحنيات ناعمة. انقر النقطة الأولى لإغلاق الشكل. اسحب النقاط أو المقابض لتعديلها (Alt يحرّك مقبضًا واحدًا وحده).',
+  'Close shape': 'إغلاق الشكل',
+  'Draw exact shapes with straight lines and smooth curves (vector paths).':
+    'ارسم أشكالًا دقيقة بخطوط مستقيمة ومنحنيات ناعمة (مسارات متجهية).',
+  'Edit path': 'تعديل المسار',
+  'Remove last point': 'حذف آخر نقطة',
+  'Start over': 'البدء من جديد',
+  'The fill shows once the shape is closed.': 'تظهر التعبئة بعد إغلاق الشكل.',
+  closed: 'مغلق',
+  '{n} points': '{n} نقاط',
+  'The path could not be drawn.': 'تعذّر رسم المسار.',
+
+  // liquify
+  Liquify: 'تشكيل',
+  'Liquify brush': 'فرشاة التشكيل',
+  Push: 'دفع',
+  Bloat: 'نفخ',
+  Pinch: 'قرص',
+  Restore: 'إرجاع',
+  'Drag the picture along with the brush: reshape a smile, a jaw line, a curve.':
+    'اسحب الصورة مع الفرشاة: أعد تشكيل ابتسامة أو خط فك أو منحنى.',
+  'Make the part under the brush bigger. Hold the mouse still to grow it more.':
+    'كبّر الجزء الذي تحت الفرشاة. أبقِ الفأرة ثابتة ليكبر أكثر.',
+  'Make the part under the brush smaller.': 'صغّر الجزء الذي تحت الفرشاة.',
+  'Paint back toward the original shape.': 'ارسم لإعادة الشكل الأصلي.',
+  'Reset liquify': 'إلغاء كل التشكيل',
+  'Reshape by painting: push, bloat, pinch and restore.': 'أعد التشكيل بالرسم: دفع، نفخ، قرص وإرجاع.',
+  'Reshape the picture by painting on it. Small, gentle strokes look natural; every stroke can be undone.':
+    'أعد تشكيل الصورة بالرسم عليها. الضربات الصغيرة الخفيفة تبدو طبيعية، ويمكن التراجع عن كل ضربة.',
+
+  // sharpen and smudge brushes
+  'Crisper detail where you paint: eyes, hair, text.': 'تفاصيل أوضح حيث ترسم: العيون، الشعر، النصوص.',
+  Smudge: 'تلطيخ',
+  'Drag colour like a finger through wet paint. Strength sets how far it carries.':
+    'اسحب اللون كأن إصبعك يمرّ في طلاء طري. القوة تحدد إلى أي مدى يمتد.',
+  'Remove all smudges': 'إزالة كل التلطيخ',
+  'Remove smudges': 'إزالة التلطيخ',
+
+  // magic wand
+  'Magic wand (by colour)': 'العصا السحرية (حسب اللون)',
+  'Click the colour you want to select… (Esc cancels)': 'انقر على اللون الذي تريد تحديده… (Esc للإلغاء)',
+  'Pick another colour': 'اختيار لون آخر',
+  'Off: every part of the picture with a similar colour is selected.':
+    'عند الإيقاف: يُحدَّد كل جزء من الصورة بلون مشابه.',
+  'Magic wand': 'العصا السحرية',
+
+  // layer masks
+  'Paint the mask': 'ارسم القناع',
+  'Stop painting the mask': 'إيقاف رسم القناع',
+  'Clear mask': 'مسح القناع',
+  'Mask brush': 'فرشاة القناع',
+  Hide: 'إخفاء',
+  Reveal: 'إظهار',
+  'Paint on the picture to hide parts of this layer. Hold Alt to bring them back. Esc stops.':
+    'ارسم على الصورة لإخفاء أجزاء من هذه الطبقة. اضغط Alt مع الرسم لإعادتها. Esc للإيقاف.',
+  'Hide part of layer': 'إخفاء جزء من الطبقة',
+  'Reveal part of layer': 'إظهار جزء من الطبقة',
+  'Clear layer mask': 'مسح قناع الطبقة',
+
+  // blur kinds
+  'Blur kind': 'نوع الضبابية',
+  Soft: 'ناعمة',
+  Motion: 'حركة',
+  Lens: 'عدسة',
+  Spin: 'دوران',
+  'An even, soft blur': 'ضبابية ناعمة متساوية',
+  'Streaks in one direction, like fast movement': 'خطوط باتجاه واحد، كأنها حركة سريعة',
+  'Round, out-of-focus highlights like a camera lens (bokeh)':
+    'دوائر ضوء خارج التركيز مثل عدسة الكاميرا (بوكيه)',
+  'Turns around the centre of the picture, like a spinning wheel': 'دوران حول مركز الصورة، مثل عجلة تدور',
+  Direction: 'الاتجاه',
+  'Tilt-shift': 'تيلت شيفت',
+  'Tilt-shift (top)': 'تيلت شيفت (أعلى)',
+  'Tilt-shift (bottom)': 'تيلت شيفت (أسفل)',
+  'A sharp band across the middle and blur above and below: the scene looks like a miniature model.':
+    'شريط واضح في المنتصف وضبابية فوقه وتحته: يبدو المشهد كمجسّم صغير.',
+
+  // editable text layers
+  'Editing the text layer “{name}”. Change anything above, then update it.':
+    'تعديل طبقة النص «{name}». غيّر ما تريد في الأعلى ثم حدّثها.',
+  'Update text layer': 'تحديث طبقة النص',
+  'Add as a new layer': 'إضافة كطبقة جديدة',
+  'Edit text': 'تعديل النص',
+
+  // actions
+  Actions: 'الإجراءات',
+  'Action name': 'اسم الإجراء',
+  'An action remembers your adjustments and any rotation or flip. Apply it to another picture in one click, or to many at once in Presets > Batch.':
+    'الإجراء يحفظ تعديلاتك وأي تدوير أو قلب. طبّقه على صورة أخرى بنقرة واحدة، أو على صور كثيرة معًا من القوالب الجاهزة > دفعة.',
+  'Apply to this picture (one undo step)': 'تطبيق على هذه الصورة (خطوة تراجع واحدة)',
+  Delete: 'حذف',
+  'My action': 'إجرائي',
+  'Name, e.g. Warm portrait': 'الاسم، مثل: بورتريه دافئ',
+  'No actions yet. Edit a picture, then save the look here.':
+    'لا توجد إجراءات بعد. عدّل صورة ثم احفظ مظهرها هنا.',
+  'Open an image to save or apply an action.': 'افتح صورة لحفظ إجراء أو تطبيقه.',
+  Replace: 'استبدال',
+  'Save action': 'حفظ الإجراء',
+  'Saved “{name}”.': 'تم حفظ «{name}».',
+
+  // brush tones
+  Affects: 'يؤثر على',
+  'All tones': 'كل الدرجات',
+  Midtones: 'الدرجات المتوسطة',
+  'The whole painted area': 'كل المنطقة المرسومة',
+  'Only the dark parts of what you paint': 'الأجزاء الداكنة فقط مما ترسمه',
+  'Only the middle tones of what you paint': 'الدرجات المتوسطة فقط مما ترسمه',
+  'Only the bright parts of what you paint': 'الأجزاء الفاتحة فقط مما ترسمه',
+
+  // fill layers
+  'A fill becomes a layer: lower its opacity or change its blend mode in Layers for a tint or a light leak.':
+    'التعبئة تصبح طبقة: خفّف شفافيتها أو غيّر طريقة دمجها في الطبقات للحصول على صبغة لونية أو تسرّب ضوء.',
+  'Add fill layer': 'إضافة طبقة تعبئة',
+  'Click on the picture to fill.': 'انقر على الصورة للتعبئة.',
+  'Click the picture… (Esc cancels)': 'انقر على الصورة… (Esc للإلغاء)',
+  'Connected area only': 'المنطقة المتصلة فقط',
+  'Filling…': 'جارٍ التعبئة…',
+  'Gradient shape': 'شكل التدرّج',
+  Linear: 'خطي',
+  'Off: every part of the picture with a similar colour is filled.':
+    'عند الإيقاف: يُعبّأ كل جزء من الصورة بلون مشابه.',
+  'Open an image to add a fill.': 'افتح صورة لإضافة تعبئة.',
+  'Paint bucket': 'دلو الألوان',
+  'Pick the area to fill': 'اختر المنطقة للتعبئة',
+  'Soft edge': 'حافة ناعمة',
+  'The fill could not be made.': 'تعذّر إنشاء التعبئة.',
+
+  // blend modes
+  'Colour dodge': 'تفتيح اللون',
+  'Colour burn': 'تغميق اللون',
+  'Hard light': 'ضوء قوي',
+  Exclusion: 'استبعاد',
+  Luminosity: 'الإضاءة',
+  'Add drawing as a layer': 'إضافة الرسم كطبقة',
 }

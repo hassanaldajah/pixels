@@ -9,6 +9,12 @@ import { guideTargets, imageToScreen, screenToImage, snapGuide, zoomAt, type Poi
 import { GlViewport } from './renderer'
 import { useEngine } from './useEngine'
 import { BrushOverlay } from './BrushOverlay'
+import { DrawOverlay } from './DrawOverlay'
+import { FillOverlay } from './FillOverlay'
+import { LayerMaskOverlay } from './LayerMaskOverlay'
+import { WandOverlay } from './WandOverlay'
+import { LiquifyOverlay } from './LiquifyOverlay'
+import { PenOverlay } from './PenOverlay'
 import { LassoOverlay } from './LassoOverlay'
 import { MoveOverlay } from './MoveOverlay'
 import { CloneOverlay } from './CloneOverlay'
@@ -358,6 +364,12 @@ export function Viewport({ onGlError }: { onGlError: (message: string) => void }
       {hasImage && <PixelArtOverlay />}
       {hasImage && <EraserOverlay />}
       {hasImage && <BrushOverlay />}
+      {hasImage && <DrawOverlay />}
+      {hasImage && <FillOverlay />}
+      {hasImage && <LayerMaskOverlay />}
+      {hasImage && <WandOverlay />}
+      {hasImage && <LiquifyOverlay />}
+      {hasImage && <PenOverlay />}
       {hasImage && <MoveOverlay />}
       {hasImage && <LassoOverlay />}
       {hasImage && <CloneOverlay />}

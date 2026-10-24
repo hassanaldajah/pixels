@@ -4,7 +4,8 @@ import { useT } from '../i18n'
 import { useDisplayedState } from '../state/edit'
 import { useImage } from '../state/image'
 import { commitLayer, moveLayer, previewLayer, removeLayer, useLayerPictures } from '../state/layers'
-import { Check, Group, Slider } from './controls'
+import { clearMask, useLayerMask } from '../state/layerMask'
+import { Check, Group, Segmented, Slider } from './controls'
 import { Icon } from './Icon'
 
 type MaskKind = 'none' | LayerMask['kind']
@@ -28,6 +29,84 @@ const BLEND_LABEL: Record<BlendMode, string> = {
   lighten: 'Lighten',
   difference: 'Difference',
   'soft-light': 'Soft light',
+  'color-dodge': 'Colour dodge',
+  'color-burn': 'Colour burn',
+  'hard-light': 'Hard light',
+  exclusion: 'Exclusion',
+  hue: 'Hue',
+  saturation: 'Saturation',
+  color: 'Colour',
+  luminosity: 'Luminosity',
+}
+
+/** Paint on the picture to hide parts of a layer, or bring them back (the mask moves with the layer). */
+function MaskBrush({ layer }: { layer: Layer }) {
+  const t = useT()
+  const m = useLayerMask()
+  const painted = (layer.hide?.strokes.length ?? 0) > 0
+  return (
+    <div className="mask-brush">
+      <div className="layers-actions">
+        <button
+          type="button"
+          className={m.painting ? 'button button-primary' : 'button'}
+          aria-pressed={m.painting}
+          onClick={() => m.set({ painting: !m.painting })}
+          title={t(
+            'Paint on the picture to hide parts of this layer. Hold Alt to bring them back. Esc stops.',
+          )}
+        >
+          <Icon name="brush" size={14} /> {m.painting ? t('Stop painting the mask') : t('Paint the mask')}
+        </button>
+        <button type="button" className="button" disabled={!painted} onClick={() => clearMask(layer.id)}>
+          {t('Clear mask')}
+        </button>
+      </div>
+      {m.painting && (
+        <>
+          <Segmented<'hide' | 'reveal'>
+            label="Mask brush"
+            value={m.reveal ? 'reveal' : 'hide'}
+            onChange={(v) => m.set({ reveal: v === 'reveal' })}
+            options={[
+              { value: 'hide', label: 'Hide' },
+              { value: 'reveal', label: 'Reveal' },
+            ]}
+          />
+          <Slider
+            label="Size"
+            value={m.size}
+            min={4}
+            max={800}
+            neutral={80}
+            unit="px"
+            onPreview={(v) => m.set({ size: Math.round(v) })}
+            onCommit={(v) => m.set({ size: Math.round(v) })}
+          />
+          <Slider
+            label="Hardness"
+            value={Math.round(m.hardness * 100)}
+            min={0}
+            max={100}
+            neutral={50}
+            unit="%"
+            onPreview={(v) => m.set({ hardness: v / 100 })}
+            onCommit={(v) => m.set({ hardness: v / 100 })}
+          />
+          <Slider
+            label="Flow"
+            value={Math.round(m.flow * 100)}
+            min={2}
+            max={100}
+            neutral={80}
+            unit="%"
+            onPreview={(v) => m.set({ flow: v / 100 })}
+            onCommit={(v) => m.set({ flow: v / 100 })}
+          />
+        </>
+      )}
+    </div>
+  )
 }
 
 /** The Layers section of the inspector. The layers themselves are part of the EditState (so undo, history and projects cover them). */
@@ -161,6 +240,7 @@ export function LayersPanel() {
               </select>
             </span>
           </label>
+          <MaskBrush layer={current} />
           <Slider
             label="Size"
             value={Math.round(current.scale * 100)}

@@ -60,8 +60,9 @@ page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`))
 
 const zoomText = () => page.locator('.hud span').first().innerText()
 
-await page.goto(base)
-// a busy machine (software WebGL, other tests running) can take longer than the default 30 s to start the opening
+// Look for the opening as soon as the page starts to arrive: on a slow machine the load event (fonts, images)
+// can come after the two-second opening has already played and gone.
+await page.goto(base, { waitUntil: 'commit' })
 await page.waitForSelector('.splash', { timeout: 90_000 }).catch(async (e) => {
   // say what the page shows instead, so a failure on CI can be read from the log
   console.error('page:', page.url(), (await page.content()).slice(0, 1500))

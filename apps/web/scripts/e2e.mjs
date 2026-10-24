@@ -62,7 +62,12 @@ const zoomText = () => page.locator('.hud span').first().innerText()
 
 await page.goto(base)
 // a busy machine (software WebGL, other tests running) can take longer than the default 30 s to start the opening
-await page.waitForSelector('.splash', { timeout: 90_000 })
+await page.waitForSelector('.splash', { timeout: 90_000 }).catch(async (e) => {
+  // say what the page shows instead, so a failure on CI can be read from the log
+  console.error('page:', page.url(), (await page.content()).slice(0, 1500))
+  console.error('problems:', problems.join('\n'))
+  throw e
+})
 check((await page.locator('.splash').count()) === 1, 'splash is shown on first load')
 const box = await page
   .locator('.splash')
